@@ -44,7 +44,7 @@ jobs:
     # Build the application
     - name: Build application
       working-directory: backend
-      run: go build -v ./cmd/app
+      run: go build -v ./cmd/toggle
 
     # Run tests
     - name: Run tests
