@@ -6,9 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jalil32/toggle/config"
 	routes "github.com/jalil32/toggle/internal/routes"
+	"github.com/jmoiron/sqlx"
 )
 
-func StartServer(cfg *config.Config, logger *slog.Logger) error {
+func StartServer(cfg *config.Config, logger *slog.Logger, db *sqlx.DB) error {
 	// Set gin to release mode so we get clean logs
 	gin.SetMode(cfg.Router.GinMode)
 
@@ -21,7 +22,7 @@ func StartServer(cfg *config.Config, logger *slog.Logger) error {
 	router.Use(CustomLogger(logger))
 
 	// Register routes
-	if err := routes.Routes(router, logger, cfg); err != nil {
+	if err := routes.Routes(router, logger, cfg, db); err != nil {
 		logger.Error("Failed to register routes", "error", err)
 		return err
 	}

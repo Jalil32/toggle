@@ -1,0 +1,47 @@
+name: CI for Go Backend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout code
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Set up Go
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.5'
+
+    # Install dependencies
+    - name: Install dependencies
+      run: go mod download
+
+    # Verify dependencies
+    - name: Verify dependencies
+      run: go mod verify
+
+    # Run golangci-lint
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+        args: --timeout=5m
+
+    # Build the application
+    - name: Build application
+      run: go build -v ./cmd/app
+
+    # Run tests
+    - name: Run tests
+      run: go test -v -race ./...
