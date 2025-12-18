@@ -25,10 +25,12 @@ jobs:
 
     # Install dependencies
     - name: Install dependencies
+      working-directory: backend
       run: go mod download
 
     # Verify dependencies
     - name: Verify dependencies
+      working-directory: backend
       run: go mod verify
 
     # Run golangci-lint
@@ -37,11 +39,14 @@ jobs:
       with:
         version: latest
         args: --timeout=5m
+        working-directory: backend
 
     # Build the application
     - name: Build application
+      working-directory: backend
       run: go build -v ./cmd/app
 
     # Run tests
     - name: Run tests
+      working-directory: backend
       run: go test -v -race ./...
