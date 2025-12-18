@@ -16,7 +16,7 @@ func InitDb(cfg *config.Config) (*sqlx.DB, error) {
 	db, err := sqlx.Connect("postgres", connStr)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error connecting to the database: %v", err)
+		return nil, fmt.Errorf("error connecting to the database: %v", err)
 	}
 
 	return db, nil

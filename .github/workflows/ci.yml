@@ -25,23 +25,28 @@ jobs:
 
     # Install dependencies
     - name: Install dependencies
+      working-directory: backend
       run: go mod download
 
     # Verify dependencies
     - name: Verify dependencies
+      working-directory: backend
       run: go mod verify
 
     # Run golangci-lint
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v8
       with:
         version: latest
         args: --timeout=5m
+        working-directory: backend
 
     # Build the application
     - name: Build application
-      run: go build -v ./cmd/app
+      working-directory: backend
+      run: go build -v ./cmd/toggle
 
     # Run tests
     - name: Run tests
+      working-directory: backend
       run: go test -v -race ./...
