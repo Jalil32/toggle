@@ -40,7 +40,7 @@ func main() {
 	}()
 
 	// Start the server (blocks until error or termination)
-	if err := server.StartServer(cfg, logger); err != nil {
+	if err := server.StartServer(cfg, logger, db); err != nil {
 		logger.Error(err.Error())
 	}
 
