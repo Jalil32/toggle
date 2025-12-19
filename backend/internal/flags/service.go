@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-
-	"github.com/google/uuid"
 )
 
 var (
@@ -35,8 +33,6 @@ func (s *service) Create(f *Flag) error {
 	if err := s.validateFlag(f); err != nil {
 		return err
 	}
-
-	f.ID = uuid.New().String()
 
 	if err := s.repo.Create(f); err != nil {
 		return fmt.Errorf("failed to create flag: %w", err)
