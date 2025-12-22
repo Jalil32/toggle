@@ -4,6 +4,7 @@ import "time"
 
 type Flag struct {
 	ID          string    `json:"id" db:"id"`
+	ProjectID   string    `json:"project_id" db:"project_id"`
 	Name        string    `json:"name" db:"name"`
 	Description string    `json:"description" db:"description"`
 	Enabled     bool      `json:"enabled" db:"enabled"`

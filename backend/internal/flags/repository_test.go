@@ -28,38 +28,38 @@ func TestRepositoryCreate(t *testing.T) {
 		{
 			name: "successful create",
 			flag: &Flag{
-				ID:          "test-id",
 				Name:        "test-flag",
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				ProjectID:   "test-project-id",
 			},
 			mockFn: func() {
-				mock.ExpectExec("INSERT INTO flags").
+				rows := sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
+					AddRow("generated-uuid", time.Now(), time.Now())
+				mock.ExpectQuery("INSERT INTO flags").
 					WithArgs(
-						"test-id",
 						"test-flag",
 						"test description",
 						false,
 						sqlmock.AnyArg(),
-						sqlmock.AnyArg(),
-						sqlmock.AnyArg(),
+						"test-project-id",
 					).
-					WillReturnResult(sqlmock.NewResult(1, 1))
+					WillReturnRows(rows)
 			},
 			wantErr: false,
 		},
 		{
 			name: "database error",
 			flag: &Flag{
-				ID:          "test-id",
 				Name:        "test-flag",
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				ProjectID:   "test-project-id",
 			},
 			mockFn: func() {
-				mock.ExpectExec("INSERT INTO flags").
+				mock.ExpectQuery("INSERT INTO flags").
 					WillReturnError(sql.ErrConnDone)
 			},
 			wantErr: true,
@@ -78,9 +78,15 @@ func TestRepositoryCreate(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Errorf("expected no error, got %v", err)
 			}
-			if !tt.wantErr && !tt.flag.CreatedAt.IsZero() {
-				if time.Since(tt.flag.CreatedAt) > time.Second {
-					t.Error("expected CreatedAt to be set to current time")
+			if !tt.wantErr {
+				if tt.flag.ID == "" {
+					t.Error("expected ID to be populated from database")
+				}
+				if tt.flag.CreatedAt.IsZero() {
+					t.Error("expected CreatedAt to be populated from database")
+				}
+				if tt.flag.UpdatedAt.IsZero() {
+					t.Error("expected UpdatedAt to be populated from database")
 				}
 			}
 
