@@ -24,10 +24,13 @@ func NewRepository(db *sqlx.DB) Repository {
 }
 
 func (r *postgresRepo) Create(ctx context.Context, orgID, name string) (*Project, error) {
-	apiKey, _ := generateAPIKey()
+	apiKey, err := generateAPIKey()
+	if err != nil {
+		return nil, err
+	}
 
 	var project Project
-	err := r.db.QueryRowxContext(ctx, `
+	err = r.db.QueryRowxContext(ctx, `
 		INSERT INTO projects (organization_id, name, client_api_key)
 		VALUES ($1, $2, $3)
 		RETURNING id, organization_id, name, client_api_key, created_at, updated_at
@@ -70,6 +73,8 @@ func (r *postgresRepo) Delete(ctx context.Context, id string) error {
 
 func generateAPIKey() (string, error) {
 	bytes := make([]byte, 32)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
 	return hex.EncodeToString(bytes), nil
 }
