@@ -34,10 +34,16 @@ func NewService(repo Repository, logger *slog.Logger) Service {
 
 func (s *service) Create(f *Flag) error {
 	if err := s.validateFlag(f); err != nil {
-		s.logger.Warn("flag validation failed",
-			slog.String("name", f.Name),
-			slog.String("error", err.Error()),
-		)
+		if f != nil {
+			s.logger.Warn("flag validation failed",
+				slog.String("name", f.Name),
+				slog.String("error", err.Error()),
+			)
+		} else {
+			s.logger.Warn("flag validation failed: nil flag",
+				slog.String("error", err.Error()),
+			)
+		}
 		return err
 	}
 
@@ -95,10 +101,16 @@ func (s *service) List() ([]Flag, error) {
 
 func (s *service) Update(f *Flag) error {
 	if err := s.validateFlag(f); err != nil {
-		s.logger.Warn("flag validation failed on update",
-			slog.String("id", f.ID),
-			slog.String("error", err.Error()),
-		)
+		if f != nil {
+			s.logger.Warn("flag validation failed on update",
+				slog.String("id", f.ID),
+				slog.String("error", err.Error()),
+			)
+		} else {
+			s.logger.Warn("flag validation failed on update: nil flag",
+				slog.String("error", err.Error()),
+			)
+		}
 		return err
 	}
 

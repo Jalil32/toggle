@@ -3,6 +3,7 @@ package flag
 import (
 	"database/sql"
 	"errors"
+	"log/slog"
 	"testing"
 )
 
@@ -17,6 +18,10 @@ type mockRepository struct {
 func (m *mockRepository) Create(f *Flag) error {
 	if m.createFunc != nil {
 		return m.createFunc(f)
+	}
+	// Set a test ID to simulate database behavior
+	if f != nil && f.ID == "" {
+		f.ID = "test-generated-id"
 	}
 	return nil
 }
@@ -99,7 +104,7 @@ func TestServiceCreate(t *testing.T) {
 			mockRepo := &mockRepository{
 				createFunc: tt.mockFn,
 			}
-			svc := NewService(mockRepo)
+			svc := NewService(mockRepo, slog.Default())
 
 			err := svc.Create(tt.flag)
 
@@ -180,7 +185,7 @@ func TestServiceGetByID(t *testing.T) {
 			mockRepo := &mockRepository{
 				getByIDFunc: tt.mockFn,
 			}
-			svc := NewService(mockRepo)
+			svc := NewService(mockRepo, slog.Default())
 
 			flag, err := svc.GetByID(tt.id)
 
@@ -247,7 +252,7 @@ func TestServiceList(t *testing.T) {
 			mockRepo := &mockRepository{
 				listFunc: tt.mockFn,
 			}
-			svc := NewService(mockRepo)
+			svc := NewService(mockRepo, slog.Default())
 
 			flags, err := svc.List()
 
@@ -345,7 +350,7 @@ func TestServiceUpdate(t *testing.T) {
 			mockRepo := &mockRepository{
 				updateFunc: tt.mockFn,
 			}
-			svc := NewService(mockRepo)
+			svc := NewService(mockRepo, slog.Default())
 
 			err := svc.Update(tt.flag)
 
@@ -408,7 +413,7 @@ func TestServiceDelete(t *testing.T) {
 			mockRepo := &mockRepository{
 				deleteFunc: tt.mockFn,
 			}
-			svc := NewService(mockRepo)
+			svc := NewService(mockRepo, slog.Default())
 
 			err := svc.Delete(tt.id)
 

@@ -30,18 +30,17 @@ func (r *postgresRepository) Create(f *Flag) error {
 		return err
 	}
 
-	now := time.Now()
 	query := `
-		INSERT INTO flags (id, name, description, enabled, rules, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO flags (name, description, enabled, rules, project_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at, updated_at
 	`
-	_, err = r.db.Exec(query, f.ID, f.Name, f.Description, f.Enabled, rulesJSON, now, now)
+	err = r.db.QueryRow(query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
+		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return err
 	}
 
-	f.CreatedAt = now
-	f.UpdatedAt = now
 	return nil
 }
 
