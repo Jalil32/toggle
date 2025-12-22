@@ -8,7 +8,7 @@ import (
 
 	"github.com/jalil32/toggle/config"
 	"github.com/jalil32/toggle/internal/flags"
-	auth "github.com/jalil32/toggle/internal/middleware"
+	"github.com/jalil32/toggle/internal/middleware"
 	"github.com/jalil32/toggle/internal/organizations"
 	"github.com/jalil32/toggle/internal/projects"
 	"github.com/jalil32/toggle/internal/users"
@@ -22,11 +22,13 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 	flagRepo := flag.NewRepository(db)
 
 	// Services
-	userService := users.NewService(userRepo, orgRepo)
-	projectService := projects.NewService(projectRepo)
-	flagService := flag.NewService(flagRepo)
+	userService := users.NewService(userRepo, orgRepo, logger)
+	orgService := organizations.NewService(orgRepo, logger)
+	projectService := projects.NewService(projectRepo, logger)
+	flagService := flag.NewService(flagRepo, logger)
 
 	// Handlers
+	orgHandler := organizations.NewHandler(orgService)
 	projectHandler := projects.NewHandler(projectService)
 	flagHandler := flag.NewHandler(flagService)
 
@@ -40,8 +42,9 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 
 	// Protected routes
 	protected := api.Group("")
-	protected.Use(auth.Middleware(cfg, userService))
+	protected.Use(auth.Middleware(cfg, logger, userService))
 	{
+		orgHandler.RegisterRoutes(protected)
 		projectHandler.RegisterRoutes(protected)
 		flagHandler.RegisterRoutes(protected)
 	}

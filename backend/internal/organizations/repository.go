@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, name string) (*Organization, error)
 	GetByID(ctx context.Context, id string) (*Organization, error)
+	Update(ctx context.Context, id, name string) (*Organization, error)
 }
 
 type postgresRepo struct {
@@ -38,6 +39,20 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*Organization, e
 		SELECT id, name, created_at, updated_at
 		FROM organizations WHERE id = $1
 	`, id)
+	if err != nil {
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (r *postgresRepo) Update(ctx context.Context, id, name string) (*Organization, error) {
+	var org Organization
+	err := r.db.QueryRowxContext(ctx, `
+		UPDATE organizations 
+		SET name = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING id, name, created_at, updated_at
+	`, name, id).StructScan(&org)
 	if err != nil {
 		return nil, err
 	}

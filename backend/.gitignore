@@ -21,6 +21,7 @@ vendor/
 /bin/
 /dist/
 /build/
+/tmp/
 
 # Environment variables
 .env

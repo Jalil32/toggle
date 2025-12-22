@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,21 +17,41 @@ import (
 )
 
 type Claims struct {
-	Email string `json:"email"`
-	Name  string `json:"name"`
 }
 
 func (c *Claims) Validate(ctx context.Context) error {
 	return nil
 }
 
-func Middleware(cfg *config.Config, userService *users.Service) gin.HandlerFunc {
+func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Service) gin.HandlerFunc {
 	// Dev mode - skip auth
 	if cfg.Auth0.SkipAuth {
+		logger.Warn("auth middleware disabled - SKIP_AUTH is true")
 		return func(c *gin.Context) {
-			c.Set("user_id", "dev-user-id")
-			c.Set("org_id", "dev-org-id")
-			c.Set("role", "owner")
+			// Get or create a dev user in the database
+			user, err := userService.GetOrCreate(
+				c.Request.Context(),
+				"dev-auth0-id",
+				"test_first",
+				"test_last",
+			)
+			if err != nil {
+				logger.Error("failed to get/create dev user",
+					slog.String("error", err.Error()),
+				)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize dev user"})
+				return
+			}
+
+			logger.Debug("dev user authenticated",
+				slog.String("user_id", user.ID),
+				slog.String("org_id", user.OrganizationID),
+			)
+
+			c.Set("user_id", user.ID)
+			c.Set("org_id", user.OrganizationID)
+			c.Set("role", user.Role)
+			c.Set("auth0_id", user.Auth0ID)
 			c.Next()
 		}
 	}
@@ -60,9 +81,18 @@ func Middleware(cfg *config.Config, userService *users.Service) gin.HandlerFunc 
 		panic("failed to create jwt validator: " + err.Error())
 	}
 
+	logger.Info("auth middleware initialized",
+		slog.String("domain", cfg.Auth0.Domain),
+		slog.String("audience", cfg.Auth0.Audience),
+	)
+
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			logger.Debug("missing authorization header",
+				slog.String("path", c.Request.URL.Path),
+				slog.String("method", c.Request.Method),
+			)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
 			return
 		}
@@ -71,29 +101,49 @@ func Middleware(cfg *config.Config, userService *users.Service) gin.HandlerFunc 
 
 		claims, err := jwtValidator.ValidateToken(c.Request.Context(), token)
 		if err != nil {
+			logger.Warn("token validation failed",
+				slog.String("error", err.Error()),
+				slog.String("path", c.Request.URL.Path),
+			)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
 
 		validatedClaims := claims.(*validator.ValidatedClaims)
-		customClaims := validatedClaims.CustomClaims.(*Claims)
 		auth0ID := validatedClaims.RegisteredClaims.Subject
 
-		// Get or create user in our DB
+		if auth0ID == "" {
+			logger.Warn("missing auth0 id in token")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing user identifier in token"})
+			return
+		}
+
+		// Use auth0ID as name placeholder (name claim not configured in Auth0 yet)
 		user, err := userService.GetOrCreate(
 			c.Request.Context(),
 			auth0ID,
-			customClaims.Email,
-			customClaims.Name,
+			auth0ID,
+			auth0ID,
 		)
+
 		if err != nil {
+			logger.Error("failed to sync user",
+				slog.String("error", err.Error()),
+				slog.String("auth0_id", auth0ID),
+			)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to sync user"})
 			return
 		}
 
+		logger.Debug("user authenticated",
+			slog.String("user_id", user.ID),
+			slog.String("org_id", user.OrganizationID),
+		)
+
 		c.Set("user_id", user.ID)
 		c.Set("org_id", user.OrganizationID)
 		c.Set("role", user.Role)
+		c.Set("auth0_id", user.Auth0ID)
 
 		c.Next()
 	}

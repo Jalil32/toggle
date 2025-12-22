@@ -7,7 +7,8 @@ type User struct {
 	Auth0ID        string    `json:"-" db:"auth0_id"`
 	OrganizationID string    `json:"organization_id" db:"organization_id"`
 	Email          string    `json:"email" db:"email"`
-	Name           string    `json:"name" db:"name"`
+	FirstName      string    `json:"firstname" db:"firstname"`
+	LastName       string    `json:"lastname" db:"lastname"`
 	Role           string    `json:"role" db:"role"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
