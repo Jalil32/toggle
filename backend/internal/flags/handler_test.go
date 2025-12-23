@@ -2,6 +2,7 @@ package flag
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,47 +10,50 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
+	appContext "github.com/jalil32/toggle/internal/pkg/context"
+	pkgErrors "github.com/jalil32/toggle/internal/pkg/errors"
 )
 
 type mockService struct {
-	createFunc  func(f *Flag) error
-	getByIDFunc func(id string) (*Flag, error)
-	listFunc    func() ([]Flag, error)
-	updateFunc  func(f *Flag) error
-	deleteFunc  func(id string) error
+	createFunc  func(ctx context.Context, f *Flag, tenantID string) error
+	getByIDFunc func(ctx context.Context, id string, tenantID string) (*Flag, error)
+	listFunc    func(ctx context.Context, tenantID string) ([]Flag, error)
+	updateFunc  func(ctx context.Context, f *Flag, tenantID string) error
+	deleteFunc  func(ctx context.Context, id string, tenantID string) error
 }
 
-func (m *mockService) Create(f *Flag) error {
+func (m *mockService) Create(ctx context.Context, f *Flag, tenantID string) error {
 	if m.createFunc != nil {
-		return m.createFunc(f)
+		return m.createFunc(ctx, f, tenantID)
 	}
 	return nil
 }
 
-func (m *mockService) GetByID(id string) (*Flag, error) {
+func (m *mockService) GetByID(ctx context.Context, id string, tenantID string) (*Flag, error) {
 	if m.getByIDFunc != nil {
-		return m.getByIDFunc(id)
+		return m.getByIDFunc(ctx, id, tenantID)
 	}
 	return nil, nil
 }
 
-func (m *mockService) List() ([]Flag, error) {
+func (m *mockService) List(ctx context.Context, tenantID string) ([]Flag, error) {
 	if m.listFunc != nil {
-		return m.listFunc()
+		return m.listFunc(ctx, tenantID)
 	}
 	return nil, nil
 }
 
-func (m *mockService) Update(f *Flag) error {
+func (m *mockService) Update(ctx context.Context, f *Flag, tenantID string) error {
 	if m.updateFunc != nil {
-		return m.updateFunc(f)
+		return m.updateFunc(ctx, f, tenantID)
 	}
 	return nil
 }
 
-func (m *mockService) Delete(id string) error {
+func (m *mockService) Delete(ctx context.Context, id string, tenantID string) error {
 	if m.deleteFunc != nil {
-		return m.deleteFunc(id)
+		return m.deleteFunc(ctx, id, tenantID)
 	}
 	return nil
 }
@@ -59,22 +63,29 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
+// setupTestContext creates a test context with auth values
+func setupTestContext(userID, tenantID, role, auth0ID string) context.Context {
+	ctx := context.Background()
+	return appContext.WithAuth(ctx, userID, tenantID, role, auth0ID)
+}
+
 func TestHandlerCreate(t *testing.T) {
 	tests := []struct {
 		name           string
 		body           interface{}
-		mockFn         func(f *Flag) error
+		mockFn         func(ctx context.Context, f *Flag, tenantID string) error
 		expectedStatus int
 		checkResponse  func(t *testing.T, body []byte)
 	}{
 		{
 			name: "successful creation",
 			body: CreateRequest{
+				ProjectID:   "test-project-id",
 				Name:        "test-flag",
 				Description: "test description",
 				Rules:       []Rule{},
 			},
-			mockFn: func(f *Flag) error {
+			mockFn: func(ctx context.Context, f *Flag, tenantID string) error {
 				f.ID = "generated-id"
 				return nil
 			},
@@ -102,6 +113,7 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "empty name",
 			body: CreateRequest{
+				ProjectID:   "test-project-id",
 				Name:        "",
 				Description: "test description",
 			},
@@ -112,10 +124,11 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "service validation error",
 			body: CreateRequest{
+				ProjectID:   "test-project-id",
 				Name:        "test-flag",
 				Description: "test description",
 			},
-			mockFn: func(f *Flag) error {
+			mockFn: func(ctx context.Context, f *Flag, tenantID string) error {
 				return ErrInvalidFlagData
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -124,10 +137,11 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "service error",
 			body: CreateRequest{
+				ProjectID:   "test-project-id",
 				Name:        "test-flag",
 				Description: "test description",
 			},
-			mockFn: func(f *Flag) error {
+			mockFn: func(ctx context.Context, f *Flag, tenantID string) error {
 				return errors.New("database error")
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -146,7 +160,9 @@ func TestHandlerCreate(t *testing.T) {
 			router.POST("/flags", h.(*handler).Create)
 
 			bodyBytes, _ := json.Marshal(tt.body)
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
 			req := httptest.NewRequest(http.MethodPost, "/flags", bytes.NewReader(bodyBytes))
+			req = req.WithContext(ctx)
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -166,13 +182,13 @@ func TestHandlerCreate(t *testing.T) {
 func TestHandlerList(t *testing.T) {
 	tests := []struct {
 		name           string
-		mockFn         func() ([]Flag, error)
+		mockFn         func(ctx context.Context, tenantID string) ([]Flag, error)
 		expectedStatus int
 		checkResponse  func(t *testing.T, body []byte)
 	}{
 		{
 			name: "successful list",
-			mockFn: func() ([]Flag, error) {
+			mockFn: func(ctx context.Context, tenantID string) ([]Flag, error) {
 				return []Flag{
 					{ID: "1", Name: "flag1", Description: "desc1"},
 					{ID: "2", Name: "flag2", Description: "desc2"},
@@ -191,7 +207,7 @@ func TestHandlerList(t *testing.T) {
 		},
 		{
 			name: "empty list",
-			mockFn: func() ([]Flag, error) {
+			mockFn: func(ctx context.Context, tenantID string) ([]Flag, error) {
 				return []Flag{}, nil
 			},
 			expectedStatus: http.StatusOK,
@@ -207,7 +223,7 @@ func TestHandlerList(t *testing.T) {
 		},
 		{
 			name: "service error",
-			mockFn: func() ([]Flag, error) {
+			mockFn: func(ctx context.Context, tenantID string) ([]Flag, error) {
 				return nil, errors.New("database error")
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -225,7 +241,9 @@ func TestHandlerList(t *testing.T) {
 			router := setupTestRouter()
 			router.GET("/flags", h.(*handler).List)
 
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
 			req := httptest.NewRequest(http.MethodGet, "/flags", nil)
+			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -245,14 +263,14 @@ func TestHandlerGet(t *testing.T) {
 	tests := []struct {
 		name           string
 		id             string
-		mockFn         func(id string) (*Flag, error)
+		mockFn         func(ctx context.Context, id string, tenantID string) (*Flag, error)
 		expectedStatus int
 		checkResponse  func(t *testing.T, body []byte)
 	}{
 		{
 			name: "successful get",
 			id:   "test-id",
-			mockFn: func(id string) (*Flag, error) {
+			mockFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return &Flag{
 					ID:          id,
 					Name:        "test-flag",
@@ -273,8 +291,8 @@ func TestHandlerGet(t *testing.T) {
 		{
 			name: "not found",
 			id:   "non-existent",
-			mockFn: func(id string) (*Flag, error) {
-				return nil, ErrFlagNotFound
+			mockFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
+				return nil, pkgErrors.ErrNotFound
 			},
 			expectedStatus: http.StatusNotFound,
 			checkResponse:  nil,
@@ -282,7 +300,7 @@ func TestHandlerGet(t *testing.T) {
 		{
 			name: "service error",
 			id:   "test-id",
-			mockFn: func(id string) (*Flag, error) {
+			mockFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return nil, errors.New("database error")
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -300,7 +318,9 @@ func TestHandlerGet(t *testing.T) {
 			router := setupTestRouter()
 			router.GET("/flags/:id", h.(*handler).Get)
 
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
 			req := httptest.NewRequest(http.MethodGet, "/flags/"+tt.id, nil)
+			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -321,8 +341,8 @@ func TestHandlerUpdate(t *testing.T) {
 		name           string
 		id             string
 		body           interface{}
-		mockGetFn      func(id string) (*Flag, error)
-		mockUpdateFn   func(f *Flag) error
+		mockGetFn      func(ctx context.Context, id string, tenantID string) (*Flag, error)
+		mockUpdateFn   func(ctx context.Context, f *Flag, tenantID string) error
 		expectedStatus int
 		checkResponse  func(t *testing.T, body []byte)
 	}{
@@ -333,7 +353,7 @@ func TestHandlerUpdate(t *testing.T) {
 				Name:        stringPtr("updated-flag"),
 				Description: stringPtr("updated description"),
 			},
-			mockGetFn: func(id string) (*Flag, error) {
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return &Flag{
 					ID:          id,
 					Name:        "old-name",
@@ -368,8 +388,8 @@ func TestHandlerUpdate(t *testing.T) {
 			body: UpdateRequest{
 				Name: stringPtr("updated-flag"),
 			},
-			mockGetFn: func(id string) (*Flag, error) {
-				return nil, ErrFlagNotFound
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
+				return nil, pkgErrors.ErrNotFound
 			},
 			mockUpdateFn:   nil,
 			expectedStatus: http.StatusNotFound,
@@ -381,13 +401,13 @@ func TestHandlerUpdate(t *testing.T) {
 			body: UpdateRequest{
 				Name: stringPtr("updated-flag"),
 			},
-			mockGetFn: func(id string) (*Flag, error) {
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return &Flag{
 					ID:   id,
 					Name: "old-name",
 				}, nil
 			},
-			mockUpdateFn: func(f *Flag) error {
+			mockUpdateFn: func(ctx context.Context, f *Flag, tenantID string) error {
 				return errors.New("database error")
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -407,7 +427,9 @@ func TestHandlerUpdate(t *testing.T) {
 			router.PUT("/flags/:id", h.(*handler).Update)
 
 			bodyBytes, _ := json.Marshal(tt.body)
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
 			req := httptest.NewRequest(http.MethodPut, "/flags/"+tt.id, bytes.NewReader(bodyBytes))
+			req = req.WithContext(ctx)
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -428,15 +450,15 @@ func TestHandlerToggle(t *testing.T) {
 	tests := []struct {
 		name           string
 		id             string
-		mockGetFn      func(id string) (*Flag, error)
-		mockUpdateFn   func(f *Flag) error
+		mockGetFn      func(ctx context.Context, id string, tenantID string) (*Flag, error)
+		mockUpdateFn   func(ctx context.Context, f *Flag, tenantID string) error
 		expectedStatus int
 		checkResponse  func(t *testing.T, body []byte)
 	}{
 		{
 			name: "successful toggle from false to true",
 			id:   "test-id",
-			mockGetFn: func(id string) (*Flag, error) {
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return &Flag{
 					ID:      id,
 					Name:    "test-flag",
@@ -458,7 +480,7 @@ func TestHandlerToggle(t *testing.T) {
 		{
 			name: "successful toggle from true to false",
 			id:   "test-id",
-			mockGetFn: func(id string) (*Flag, error) {
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return &Flag{
 					ID:      id,
 					Name:    "test-flag",
@@ -480,8 +502,8 @@ func TestHandlerToggle(t *testing.T) {
 		{
 			name: "flag not found",
 			id:   "non-existent",
-			mockGetFn: func(id string) (*Flag, error) {
-				return nil, ErrFlagNotFound
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
+				return nil, pkgErrors.ErrNotFound
 			},
 			mockUpdateFn:   nil,
 			expectedStatus: http.StatusNotFound,
@@ -490,14 +512,14 @@ func TestHandlerToggle(t *testing.T) {
 		{
 			name: "update error",
 			id:   "test-id",
-			mockGetFn: func(id string) (*Flag, error) {
+			mockGetFn: func(ctx context.Context, id string, tenantID string) (*Flag, error) {
 				return &Flag{
 					ID:      id,
 					Name:    "test-flag",
 					Enabled: false,
 				}, nil
 			},
-			mockUpdateFn: func(f *Flag) error {
+			mockUpdateFn: func(ctx context.Context, f *Flag, tenantID string) error {
 				return errors.New("database error")
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -516,7 +538,9 @@ func TestHandlerToggle(t *testing.T) {
 			router := setupTestRouter()
 			router.PATCH("/flags/:id/toggle", h.(*handler).Toggle)
 
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
 			req := httptest.NewRequest(http.MethodPatch, "/flags/"+tt.id+"/toggle", nil)
+			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -536,7 +560,7 @@ func TestHandlerDelete(t *testing.T) {
 	tests := []struct {
 		name           string
 		id             string
-		mockFn         func(id string) error
+		mockFn         func(ctx context.Context, id string, tenantID string) error
 		expectedStatus int
 	}{
 		{
@@ -548,15 +572,15 @@ func TestHandlerDelete(t *testing.T) {
 		{
 			name: "not found",
 			id:   "non-existent",
-			mockFn: func(id string) error {
-				return ErrFlagNotFound
+			mockFn: func(ctx context.Context, id string, tenantID string) error {
+				return pkgErrors.ErrNotFound
 			},
 			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name: "service error",
 			id:   "test-id",
-			mockFn: func(id string) error {
+			mockFn: func(ctx context.Context, id string, tenantID string) error {
 				return errors.New("database error")
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -573,7 +597,9 @@ func TestHandlerDelete(t *testing.T) {
 			router := setupTestRouter()
 			router.DELETE("/flags/:id", h.(*handler).Delete)
 
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
 			req := httptest.NewRequest(http.MethodDelete, "/flags/"+tt.id, nil)
+			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

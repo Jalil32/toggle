@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/jalil32/toggle/config"
+	appContext "github.com/jalil32/toggle/internal/pkg/context"
 	"github.com/jalil32/toggle/internal/tenants"
 	"github.com/jalil32/toggle/internal/users"
 )
@@ -75,11 +76,15 @@ func Auth(cfg *config.Config, logger *slog.Logger, userService *users.Service, t
 				slog.String("role", activeMembership.Role),
 			)
 
-			// TODO: Phase 2 will use tenant_id from X-Tenant-ID header
-			c.Set("user_id", user.ID)
-			c.Set("tenant_id", activeMembership.TenantID)
-			c.Set("role", activeMembership.Role)
-			c.Set("auth0_id", user.Auth0ID)
+			// Set authentication context
+			ctx := appContext.WithAuth(
+				c.Request.Context(),
+				user.ID,
+				activeMembership.TenantID,
+				activeMembership.Role,
+				user.Auth0ID,
+			)
+			c.Request = c.Request.WithContext(ctx)
 			c.Next()
 		}
 	}
@@ -194,12 +199,15 @@ func Auth(cfg *config.Config, logger *slog.Logger, userService *users.Service, t
 			slog.String("role", activeMembership.Role),
 		)
 
-		// TODO: Phase 2 will use tenant_id from X-Tenant-ID header
-		c.Set("user_id", user.ID)
-		c.Set("tenant_id", activeMembership.TenantID)
-		c.Set("role", activeMembership.Role)
-		c.Set("auth0_id", user.Auth0ID)
-
+		// Set authentication context
+		ctx := appContext.WithAuth(
+			c.Request.Context(),
+			user.ID,
+			activeMembership.TenantID,
+			activeMembership.Role,
+			user.Auth0ID,
+		)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }

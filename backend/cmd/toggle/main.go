@@ -9,6 +9,16 @@ import (
 	"github.com/lmittmann/tint"
 )
 
+// @title Toggle API
+// @version 1.0
+// @description Feature flag management API
+
+// @BasePath /v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter your token as: Bearer <token>
 func main() {
 	// Initialise structures logger
 	logger := slog.New(tint.NewHandler(os.Stdout, nil))

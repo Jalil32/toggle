@@ -1,6 +1,7 @@
 package flag
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -70,7 +71,7 @@ func TestRepositoryCreate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.mockFn()
 
-			err := repo.Create(tt.flag)
+			err := repo.Create(context.Background(), tt.flag)
 
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")
@@ -121,10 +122,10 @@ func TestRepositoryGetByID(t *testing.T) {
 			name: "successful get",
 			id:   "test-id",
 			mockFn: func() {
-				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "created_at", "updated_at"}).
-					AddRow("test-id", "test-flag", "test description", false, rulesJSON, now, now)
-				mock.ExpectQuery("SELECT (.+) FROM flags WHERE id = \\$1").
-					WithArgs("test-id").
+				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "project_id", "created_at", "updated_at"}).
+					AddRow("test-id", "test-flag", "test description", false, rulesJSON, "test-project-id", now, now)
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
+					WithArgs("test-id", "test-tenant-id").
 					WillReturnRows(rows)
 			},
 			want: &Flag{
@@ -142,8 +143,8 @@ func TestRepositoryGetByID(t *testing.T) {
 			name: "not found",
 			id:   "non-existent",
 			mockFn: func() {
-				mock.ExpectQuery("SELECT (.+) FROM flags WHERE id = \\$1").
-					WithArgs("non-existent").
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
+					WithArgs("non-existent", "test-tenant-id").
 					WillReturnError(sql.ErrNoRows)
 			},
 			want:    nil,
@@ -153,8 +154,8 @@ func TestRepositoryGetByID(t *testing.T) {
 			name: "database error",
 			id:   "test-id",
 			mockFn: func() {
-				mock.ExpectQuery("SELECT (.+) FROM flags WHERE id = \\$1").
-					WithArgs("test-id").
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
+					WithArgs("test-id", "test-tenant-id").
 					WillReturnError(sql.ErrConnDone)
 			},
 			want:    nil,
@@ -166,7 +167,7 @@ func TestRepositoryGetByID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.mockFn()
 
-			flag, err := repo.GetByID(tt.id)
+			flag, err := repo.GetByID(context.Background(), tt.id, "test-tenant-id")
 
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")
@@ -209,10 +210,11 @@ func TestRepositoryList(t *testing.T) {
 		{
 			name: "successful list",
 			mockFn: func() {
-				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "created_at", "updated_at"}).
-					AddRow("id1", "flag1", "desc1", true, rulesJSON, now, now).
-					AddRow("id2", "flag2", "desc2", false, rulesJSON, now, now)
-				mock.ExpectQuery("SELECT (.+) FROM flags ORDER BY created_at DESC").
+				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "project_id", "created_at", "updated_at"}).
+					AddRow("id1", "flag1", "desc1", true, rulesJSON, "test-project-id", now, now).
+					AddRow("id2", "flag2", "desc2", false, rulesJSON, "test-project-id", now, now)
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
+					WithArgs("test-tenant-id").
 					WillReturnRows(rows)
 			},
 			want:    2,
@@ -221,8 +223,9 @@ func TestRepositoryList(t *testing.T) {
 		{
 			name: "empty list",
 			mockFn: func() {
-				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "created_at", "updated_at"})
-				mock.ExpectQuery("SELECT (.+) FROM flags ORDER BY created_at DESC").
+				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "project_id", "created_at", "updated_at"})
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
+					WithArgs("test-tenant-id").
 					WillReturnRows(rows)
 			},
 			want:    0,
@@ -231,7 +234,8 @@ func TestRepositoryList(t *testing.T) {
 		{
 			name: "database error",
 			mockFn: func() {
-				mock.ExpectQuery("SELECT (.+) FROM flags ORDER BY created_at DESC").
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
+					WithArgs("test-tenant-id").
 					WillReturnError(sql.ErrConnDone)
 			},
 			want:    0,
@@ -243,7 +247,7 @@ func TestRepositoryList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.mockFn()
 
-			flags, err := repo.List()
+			flags, err := repo.List(context.Background(), "test-tenant-id")
 
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")
@@ -288,7 +292,7 @@ func TestRepositoryUpdate(t *testing.T) {
 				Rules:       []Rule{},
 			},
 			mockFn: func() {
-				mock.ExpectExec("UPDATE flags").
+				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, updated_at = \\$6 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$7").
 					WithArgs(
 						"test-id",
 						"updated-flag",
@@ -296,6 +300,7 @@ func TestRepositoryUpdate(t *testing.T) {
 						true,
 						sqlmock.AnyArg(),
 						sqlmock.AnyArg(),
+						"test-tenant-id",
 					).
 					WillReturnResult(sqlmock.NewResult(0, 1))
 			},
@@ -311,7 +316,16 @@ func TestRepositoryUpdate(t *testing.T) {
 				Rules:       []Rule{},
 			},
 			mockFn: func() {
-				mock.ExpectExec("UPDATE flags").
+				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, updated_at = \\$6 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$7").
+					WithArgs(
+						"non-existent",
+						"test-flag",
+						"test description",
+						false,
+						sqlmock.AnyArg(),
+						sqlmock.AnyArg(),
+						"test-tenant-id",
+					).
 					WillReturnResult(sqlmock.NewResult(0, 0))
 			},
 			wantErr: true,
@@ -326,7 +340,16 @@ func TestRepositoryUpdate(t *testing.T) {
 				Rules:       []Rule{},
 			},
 			mockFn: func() {
-				mock.ExpectExec("UPDATE flags").
+				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, updated_at = \\$6 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$7").
+					WithArgs(
+						"test-id",
+						"test-flag",
+						"test description",
+						false,
+						sqlmock.AnyArg(),
+						sqlmock.AnyArg(),
+						"test-tenant-id",
+					).
 					WillReturnError(sql.ErrConnDone)
 			},
 			wantErr: true,
@@ -337,7 +360,7 @@ func TestRepositoryUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.mockFn()
 
-			err := repo.Update(tt.flag)
+			err := repo.Update(context.Background(), tt.flag, "test-tenant-id")
 
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")
@@ -378,8 +401,8 @@ func TestRepositoryDelete(t *testing.T) {
 			name: "successful delete",
 			id:   "test-id",
 			mockFn: func() {
-				mock.ExpectExec("DELETE FROM flags WHERE id = \\$1").
-					WithArgs("test-id").
+				mock.ExpectExec("DELETE FROM flags f USING projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$2").
+					WithArgs("test-id", "test-tenant-id").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 			},
 			wantErr: false,
@@ -388,8 +411,8 @@ func TestRepositoryDelete(t *testing.T) {
 			name: "not found",
 			id:   "non-existent",
 			mockFn: func() {
-				mock.ExpectExec("DELETE FROM flags WHERE id = \\$1").
-					WithArgs("non-existent").
+				mock.ExpectExec("DELETE FROM flags f USING projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$2").
+					WithArgs("non-existent", "test-tenant-id").
 					WillReturnResult(sqlmock.NewResult(0, 0))
 			},
 			wantErr: true,
@@ -398,8 +421,8 @@ func TestRepositoryDelete(t *testing.T) {
 			name: "database error",
 			id:   "test-id",
 			mockFn: func() {
-				mock.ExpectExec("DELETE FROM flags WHERE id = \\$1").
-					WithArgs("test-id").
+				mock.ExpectExec("DELETE FROM flags f USING projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$2").
+					WithArgs("test-id", "test-tenant-id").
 					WillReturnError(sql.ErrConnDone)
 			},
 			wantErr: true,
@@ -410,7 +433,7 @@ func TestRepositoryDelete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.mockFn()
 
-			err := repo.Delete(tt.id)
+			err := repo.Delete(context.Background(), tt.id, "test-tenant-id")
 
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")

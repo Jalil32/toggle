@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 
 	"github.com/jmoiron/sqlx"
@@ -10,9 +11,9 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context, tenantID, name string) (*Project, error)
-	GetByID(ctx context.Context, id string) (*Project, error)
+	GetByID(ctx context.Context, id string, tenantID string) (*Project, error)
 	ListByTenantID(ctx context.Context, tenantID string) ([]Project, error)
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string, tenantID string) error
 }
 
 type postgresRepo struct {
@@ -41,12 +42,12 @@ func (r *postgresRepo) Create(ctx context.Context, tenantID, name string) (*Proj
 	return &project, nil
 }
 
-func (r *postgresRepo) GetByID(ctx context.Context, id string) (*Project, error) {
+func (r *postgresRepo) GetByID(ctx context.Context, id string, tenantID string) (*Project, error) {
 	var project Project
 	err := r.db.GetContext(ctx, &project, `
 		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
-		FROM projects WHERE id = $1
-	`, id)
+		FROM projects WHERE id = $1 AND tenant_id = $2
+	`, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +67,24 @@ func (r *postgresRepo) ListByTenantID(ctx context.Context, tenantID string) ([]P
 	return projects, nil
 }
 
-func (r *postgresRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM projects WHERE id = $1`, id)
-	return err
+func (r *postgresRepo) Delete(ctx context.Context, id string, tenantID string) error {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM projects WHERE id = $1 AND tenant_id = $2
+	`, id, tenantID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func generateAPIKey() (string, error) {
