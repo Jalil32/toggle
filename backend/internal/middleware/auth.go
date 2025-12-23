@@ -1,4 +1,4 @@
-package auth
+package middleware
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func (c *Claims) Validate(ctx context.Context) error {
 	return nil
 }
 
-func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Service) gin.HandlerFunc {
+func Auth(cfg *config.Config, logger *slog.Logger, userService *users.Service) gin.HandlerFunc {
 	// Dev mode - skip auth
 	if cfg.Auth0.SkipAuth {
 		logger.Warn("auth middleware disabled - SKIP_AUTH is true")
@@ -45,11 +45,12 @@ func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Serv
 
 			logger.Debug("dev user authenticated",
 				slog.String("user_id", user.ID),
-				slog.String("org_id", user.OrganizationID),
+				slog.String("tenant_id", user.TenantID),
 			)
 
+			// TODO: Phase 2 will use tenant_id from X-Tenant-ID header
 			c.Set("user_id", user.ID)
-			c.Set("org_id", user.OrganizationID)
+			c.Set("org_id", user.TenantID) // Keep as org_id for backward compat during Phase 1
 			c.Set("role", user.Role)
 			c.Set("auth0_id", user.Auth0ID)
 			c.Next()
@@ -137,11 +138,12 @@ func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Serv
 
 		logger.Debug("user authenticated",
 			slog.String("user_id", user.ID),
-			slog.String("org_id", user.OrganizationID),
+			slog.String("tenant_id", user.TenantID),
 		)
 
+		// TODO: Phase 2 will use tenant_id from X-Tenant-ID header
 		c.Set("user_id", user.ID)
-		c.Set("org_id", user.OrganizationID)
+		c.Set("org_id", user.TenantID) // Keep as org_id for backward compat during Phase 1
 		c.Set("role", user.Role)
 		c.Set("auth0_id", user.Auth0ID)
 

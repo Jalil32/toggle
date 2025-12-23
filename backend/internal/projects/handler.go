@@ -28,9 +28,10 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	orgID := c.GetString("org_id")
+	// TODO: Will be updated to use tenant_id from context in Phase 2
+	tenantID := c.GetString("org_id")
 
-	project, err := h.service.Create(c.Request.Context(), orgID, req.Name)
+	project, err := h.service.Create(c.Request.Context(), tenantID, req.Name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -40,9 +41,10 @@ func (h *Handler) Create(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	orgID := c.GetString("org_id")
+	// TODO: Will be updated to use tenant_id from context in Phase 2
+	tenantID := c.GetString("org_id")
 
-	projects, err := h.service.ListByOrgID(c.Request.Context(), orgID)
+	projects, err := h.service.ListByTenantID(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -60,8 +62,9 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	// Check org ownership
-	if project.OrganizationID != c.GetString("org_id") {
+	// Check tenant ownership
+	// TODO: Will be updated to use tenant_id from context in Phase 2
+	if project.TenantID != c.GetString("org_id") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
@@ -78,7 +81,8 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
 		return
 	}
-	if project.OrganizationID != c.GetString("org_id") {
+	// TODO: Will be updated to use tenant_id from context in Phase 2
+	if project.TenantID != c.GetString("org_id") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}

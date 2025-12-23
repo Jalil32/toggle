@@ -17,11 +17,11 @@ func NewService(repo Repository, logger *slog.Logger) *Service {
 	}
 }
 
-func (s *Service) Create(ctx context.Context, orgID, name string) (*Project, error) {
-	project, err := s.repo.Create(ctx, orgID, name)
+func (s *Service) Create(ctx context.Context, tenantID, name string) (*Project, error) {
+	project, err := s.repo.Create(ctx, tenantID, name)
 	if err != nil {
 		s.logger.Error("failed to create project",
-			slog.String("org_id", orgID),
+			slog.String("tenant_id", tenantID),
 			slog.String("name", name),
 			slog.String("error", err.Error()),
 		)
@@ -31,7 +31,7 @@ func (s *Service) Create(ctx context.Context, orgID, name string) (*Project, err
 	s.logger.Info("project created",
 		slog.String("id", project.ID),
 		slog.String("name", project.Name),
-		slog.String("org_id", orgID),
+		slog.String("tenant_id", tenantID),
 	)
 
 	return project, nil
@@ -49,11 +49,11 @@ func (s *Service) GetByID(ctx context.Context, id string) (*Project, error) {
 	return project, nil
 }
 
-func (s *Service) ListByOrgID(ctx context.Context, orgID string) ([]Project, error) {
-	projects, err := s.repo.ListByOrgID(ctx, orgID)
+func (s *Service) ListByTenantID(ctx context.Context, tenantID string) ([]Project, error) {
+	projects, err := s.repo.ListByTenantID(ctx, tenantID)
 	if err != nil {
 		s.logger.Error("failed to list projects",
-			slog.String("org_id", orgID),
+			slog.String("tenant_id", tenantID),
 			slog.String("error", err.Error()),
 		)
 		return nil, err

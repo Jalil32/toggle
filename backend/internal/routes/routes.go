@@ -7,30 +7,34 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/jalil32/toggle/config"
-	"github.com/jalil32/toggle/internal/flags"
+	flags "github.com/jalil32/toggle/internal/flags"
 	"github.com/jalil32/toggle/internal/middleware"
-	"github.com/jalil32/toggle/internal/organizations"
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jalil32/toggle/internal/projects"
+	"github.com/jalil32/toggle/internal/tenants"
 	"github.com/jalil32/toggle/internal/users"
 )
 
 func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sqlx.DB) error {
+	// Unit of Work
+	uow := transaction.NewUnitOfWork(db)
+
 	// Repositories
-	orgRepo := organizations.NewRepository(db)
+	tenantRepo := tenants.NewRepository(db)
 	userRepo := users.NewRepository(db)
 	projectRepo := projects.NewRepository(db)
-	flagRepo := flag.NewRepository(db)
+	flagRepo := flags.NewRepository(db)
 
 	// Services
-	userService := users.NewService(userRepo, orgRepo, logger)
-	orgService := organizations.NewService(orgRepo, logger)
+	tenantService := tenants.NewService(tenantRepo, logger)
+	userService := users.NewService(userRepo, tenantRepo, uow, logger)
 	projectService := projects.NewService(projectRepo, logger)
-	flagService := flag.NewService(flagRepo, logger)
+	flagService := flags.NewService(flagRepo, logger)
 
 	// Handlers
-	orgHandler := organizations.NewHandler(orgService)
+	tenantHandler := tenants.NewHandler(tenantService)
 	projectHandler := projects.NewHandler(projectService)
-	flagHandler := flag.NewHandler(flagService)
+	flagHandler := flags.NewHandler(flagService)
 
 	// Routes
 	api := router.Group("/api/v1")
@@ -40,14 +44,24 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Protected routes
+	// Protected routes (auth required)
 	protected := api.Group("")
-	protected.Use(auth.Middleware(cfg, logger, userService))
+	protected.Use(middleware.Auth(cfg, logger, userService))
+
+	// Tenant-scoped routes (auth + tenant context required)
+	tenantScoped := protected.Group("")
+	tenantScoped.Use(middleware.Tenant(tenantRepo, logger))
 	{
-		orgHandler.RegisterRoutes(protected)
-		projectHandler.RegisterRoutes(protected)
-		flagHandler.RegisterRoutes(protected)
+		// Tenant operations require tenant context
+		tenantHandler.RegisterRoutes(tenantScoped)
+
+		// Projects and flags are tenant-scoped
+		projectHandler.RegisterRoutes(tenantScoped)
+		flagHandler.RegisterRoutes(tenantScoped)
 	}
+
+	// TODO: Add user-level routes here (e.g., GET /tenants to list all user's tenants)
+	// These don't require X-Tenant-ID header
 
 	return nil
 }
