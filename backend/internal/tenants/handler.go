@@ -22,8 +22,7 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *Handler) Get(c *gin.Context) {
-	// TODO: Will be updated to use tenant_id from context in Phase 2
-	tenantID := c.GetString("org_id")
+	tenantID := c.GetString("tenant_id")
 
 	tenant, err := h.service.GetByID(c.Request.Context(), tenantID)
 	if err != nil {
@@ -39,8 +38,7 @@ type UpdateRequest struct {
 }
 
 func (h *Handler) Update(c *gin.Context) {
-	// TODO: Will be updated to use tenant_id from context in Phase 2
-	tenantID := c.GetString("org_id")
+	tenantID := c.GetString("tenant_id")
 	role := c.GetString("role")
 
 	// Only owners/admins can update

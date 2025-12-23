@@ -66,11 +66,9 @@ func Tenant(tenantRepo tenants.Repository, logger *slog.Logger) gin.HandlerFunc 
 		ctx := tenantCtx.WithTenant(c.Request.Context(), tenantID, role)
 		c.Request = c.Request.WithContext(ctx)
 
-		// Also set in Gin context for backward compatibility
+		// Also set in Gin context
 		c.Set("tenant_id", tenantID)
-		c.Set("user_role", role)
-		// Keep org_id for backward compatibility (points to tenant_id)
-		c.Set("org_id", tenantID)
+		c.Set("role", role)
 
 		logger.Debug("tenant middleware: tenant context set",
 			slog.String("user_id", userID),

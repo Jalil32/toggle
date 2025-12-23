@@ -103,6 +103,12 @@ func (s *Service) GetOrCreate(ctx context.Context, auth0ID, firstname, lastname 
 			return fmt.Errorf("create tenant membership: %w", err)
 		}
 
+		// Update user's last active tenant ID
+		err = s.repo.UpdateLastActiveTenant(txCtx, user.ID, tenant.ID)
+		if err != nil {
+			return fmt.Errorf("update last active tenant: %w", err)
+		}
+
 		s.logger.Info("successfully created new user and tenant",
 			slog.String("user_id", user.ID),
 			slog.String("tenant_id", tenant.ID),

@@ -46,19 +46,19 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 
 	// Protected routes (auth required)
 	protected := api.Group("")
-	protected.Use(middleware.Auth(cfg, logger, userService))
-
-	// Tenant-scoped routes (auth + tenant context required)
-	tenantScoped := protected.Group("")
-	tenantScoped.Use(middleware.Tenant(tenantRepo, logger))
+	protected.Use(middleware.Auth(cfg, logger, userService, tenantService))
 	{
-		// Tenant operations require tenant context
-		tenantHandler.RegisterRoutes(tenantScoped)
+		// Tenant operations
+		tenantHandler.RegisterRoutes(protected)
 
 		// Projects and flags are tenant-scoped
-		projectHandler.RegisterRoutes(tenantScoped)
-		flagHandler.RegisterRoutes(tenantScoped)
+		projectHandler.RegisterRoutes(protected)
+		flagHandler.RegisterRoutes(protected)
 	}
+
+	// TODO Phase 2: Add tenant middleware for X-Tenant-ID header validation
+	// tenantScoped := protected.Group("")
+	// tenantScoped.Use(middleware.Tenant(tenantRepo, logger))
 
 	// TODO: Add user-level routes here (e.g., GET /tenants to list all user's tenants)
 	// These don't require X-Tenant-ID header

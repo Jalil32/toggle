@@ -13,6 +13,7 @@ type Repository interface {
 	Create(ctx context.Context, auth0ID, email, firstname, lastname string) (*User, error)
 	GetByAuth0ID(ctx context.Context, auth0ID string) (*User, error)
 	GetByID(ctx context.Context, id string) (*User, error)
+	UpdateLastActiveTenant(ctx context.Context, userID, tenantID string) error
 }
 
 type postgresRepo struct {
@@ -38,7 +39,7 @@ func (r *postgresRepo) Create(ctx context.Context, auth0ID, email, firstname, la
 	err := sqlx.GetContext(ctx, executor, &user, `
 		INSERT INTO users (auth0_id, email, firstname, lastname)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, auth0_id, email, firstname, lastname, created_at, updated_at
+		RETURNING id, auth0_id, last_active_tenant_id, email, firstname, lastname, created_at, updated_at
 	`, auth0ID, email, firstname, lastname)
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func (r *postgresRepo) GetByAuth0ID(ctx context.Context, auth0ID string) (*User,
 	executor := r.getExecutor(ctx)
 
 	err := sqlx.GetContext(ctx, executor, &user, `
-		SELECT id, auth0_id, tenant_id, email, firstname, lastname, role, created_at, updated_at
+		SELECT id, auth0_id, last_active_tenant_id, email, firstname, lastname, created_at, updated_at
 		FROM users WHERE auth0_id = $1
 	`, auth0ID)
 	if err != nil {
@@ -65,13 +66,26 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*User, error) {
 	executor := r.getExecutor(ctx)
 
 	err := sqlx.GetContext(ctx, executor, &user, `
-		SELECT id, auth0_id, tenant_id, email, firstname, lastname, role, created_at, updated_at
+		SELECT id, auth0_id, last_active_tenant_id, email, firstname, lastname, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id)
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *postgresRepo) UpdateLastActiveTenant(ctx context.Context, userID, tenantID string) error {
+	executor := r.getExecutor(ctx)
+
+	query := `
+		UPDATE users
+		SET last_active_tenant_id = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+
+	_, err := executor.ExecContext(ctx, query, tenantID, userID)
+	return err
 }
 
 var ErrNotFound = sql.ErrNoRows

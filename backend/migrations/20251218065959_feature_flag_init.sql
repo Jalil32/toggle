@@ -11,11 +11,10 @@ CREATE TABLE IF NOT EXISTS tenants (
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     auth0_id VARCHAR(255) UNIQUE NOT NULL,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    last_active_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     email VARCHAR(255) NOT NULL DEFAULT '',
     firstname VARCHAR(255) NOT NULL DEFAULT '',
     lastname VARCHAR(255) NOT NULL DEFAULT '',
-    role VARCHAR(50) NOT NULL DEFAULT 'member',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -40,7 +39,7 @@ CREATE TABLE IF NOT EXISTS flags (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_tenant ON users(tenant_id);
+CREATE INDEX idx_users_last_active_tenant ON users(last_active_tenant_id);
 CREATE INDEX idx_users_auth0 ON users(auth0_id);
 CREATE INDEX idx_projects_tenant ON projects(tenant_id);
 CREATE INDEX idx_flags_project ON flags(project_id);
