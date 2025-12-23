@@ -125,3 +125,22 @@ func (s *Service) GetOrCreate(ctx context.Context, auth0ID, firstname, lastname 
 
 	return user, nil
 }
+
+func (s *Service) UpdateLastActiveTenant(ctx context.Context, userID, tenantID string) error {
+	err := s.repo.UpdateLastActiveTenant(ctx, userID, tenantID)
+	if err != nil {
+		s.logger.Error("failed to update last active tenant",
+			slog.String("user_id", userID),
+			slog.String("tenant_id", tenantID),
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
+
+	s.logger.Info("updated last active tenant",
+		slog.String("user_id", userID),
+		slog.String("tenant_id", tenantID),
+	)
+
+	return nil
+}
