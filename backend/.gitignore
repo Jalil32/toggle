@@ -59,4 +59,6 @@ CLAUDE.md
 review_spec.md
 spec.md
 test_spec.md
+.beads/
+.claude/
 

@@ -33,7 +33,9 @@ func (u *unitOfWork) RunInTransaction(ctx context.Context, fn func(ctx context.C
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Safe to call even after commit
+	defer func() {
+		_ = tx.Rollback() // Safe to call even after commit
+	}()
 
 	// Inject transaction into context
 	txCtx := context.WithValue(ctx, txKey{}, tx)
