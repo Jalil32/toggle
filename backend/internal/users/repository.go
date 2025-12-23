@@ -5,12 +5,15 @@ import (
 	"database/sql"
 
 	"github.com/jmoiron/sqlx"
+
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 )
 
 type Repository interface {
-	Create(ctx context.Context, auth0ID, orgID, email, firstname, lastname, role string) (*User, error)
+	Create(ctx context.Context, auth0ID, email, firstname, lastname string) (*User, error)
 	GetByAuth0ID(ctx context.Context, auth0ID string) (*User, error)
 	GetByID(ctx context.Context, id string) (*User, error)
+	UpdateLastActiveTenant(ctx context.Context, userID, tenantID string) error
 }
 
 type postgresRepo struct {
@@ -21,13 +24,23 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &postgresRepo{db: db}
 }
 
-func (r *postgresRepo) Create(ctx context.Context, auth0ID, orgID, email, firstname, lastname, role string) (*User, error) {
+// getExecutor returns the appropriate database executor (transaction or connection)
+func (r *postgresRepo) getExecutor(ctx context.Context) sqlx.ExtContext {
+	if tx, ok := transaction.GetTx(ctx); ok {
+		return tx
+	}
+	return r.db
+}
+
+func (r *postgresRepo) Create(ctx context.Context, auth0ID, email, firstname, lastname string) (*User, error) {
 	var user User
-	err := r.db.QueryRowxContext(ctx, `
-		INSERT INTO users (auth0_id, organization_id, email, firstname, lastname, role)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, auth0_id, organization_id, email, firstname, lastname, role, created_at, updated_at
-	`, auth0ID, orgID, email, firstname, lastname, role).StructScan(&user)
+	executor := r.getExecutor(ctx)
+
+	err := sqlx.GetContext(ctx, executor, &user, `
+		INSERT INTO users (auth0_id, email, firstname, lastname)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, auth0_id, last_active_tenant_id, email, firstname, lastname, created_at, updated_at
+	`, auth0ID, email, firstname, lastname)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +49,10 @@ func (r *postgresRepo) Create(ctx context.Context, auth0ID, orgID, email, firstn
 
 func (r *postgresRepo) GetByAuth0ID(ctx context.Context, auth0ID string) (*User, error) {
 	var user User
-	err := r.db.GetContext(ctx, &user, `
-		SELECT id, auth0_id, organization_id, email, firstname, lastname, role, created_at, updated_at
+	executor := r.getExecutor(ctx)
+
+	err := sqlx.GetContext(ctx, executor, &user, `
+		SELECT id, auth0_id, last_active_tenant_id, email, firstname, lastname, created_at, updated_at
 		FROM users WHERE auth0_id = $1
 	`, auth0ID)
 	if err != nil {
@@ -48,14 +63,29 @@ func (r *postgresRepo) GetByAuth0ID(ctx context.Context, auth0ID string) (*User,
 
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*User, error) {
 	var user User
-	err := r.db.GetContext(ctx, &user, `
-		SELECT id, auth0_id, organization_id, email, firstname, lastname, role, created_at, updated_at
+	executor := r.getExecutor(ctx)
+
+	err := sqlx.GetContext(ctx, executor, &user, `
+		SELECT id, auth0_id, last_active_tenant_id, email, firstname, lastname, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id)
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *postgresRepo) UpdateLastActiveTenant(ctx context.Context, userID, tenantID string) error {
+	executor := r.getExecutor(ctx)
+
+	query := `
+		UPDATE users
+		SET last_active_tenant_id = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+
+	_, err := executor.ExecContext(ctx, query, tenantID, userID)
+	return err
 }
 
 var ErrNotFound = sql.ErrNoRows

@@ -1,4 +1,4 @@
-package auth
+package middleware
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/jalil32/toggle/config"
+	"github.com/jalil32/toggle/internal/tenants"
 	"github.com/jalil32/toggle/internal/users"
 )
 
@@ -23,7 +24,7 @@ func (c *Claims) Validate(ctx context.Context) error {
 	return nil
 }
 
-func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Service) gin.HandlerFunc {
+func Auth(cfg *config.Config, logger *slog.Logger, userService *users.Service, tenantService *tenants.Service) gin.HandlerFunc {
 	// Dev mode - skip auth
 	if cfg.Auth0.SkipAuth {
 		logger.Warn("auth middleware disabled - SKIP_AUTH is true")
@@ -43,14 +44,41 @@ func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Serv
 				return
 			}
 
+			// Get user's tenant memberships
+			memberships, err := tenantService.ListUserTenants(c.Request.Context(), user.ID)
+			if err != nil || len(memberships) == 0 {
+				logger.Error("failed to get user memberships",
+					slog.String("user_id", user.ID),
+					slog.String("error", err.Error()),
+				)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "user has no tenant memberships"})
+				return
+			}
+
+			// Use last active tenant if set, otherwise use first membership
+			var activeMembership *tenants.TenantMembership
+			if user.LastActiveTenantID != nil {
+				for _, m := range memberships {
+					if m.TenantID == *user.LastActiveTenantID {
+						activeMembership = m
+						break
+					}
+				}
+			}
+			if activeMembership == nil {
+				activeMembership = memberships[0]
+			}
+
 			logger.Debug("dev user authenticated",
 				slog.String("user_id", user.ID),
-				slog.String("org_id", user.OrganizationID),
+				slog.String("tenant_id", activeMembership.TenantID),
+				slog.String("role", activeMembership.Role),
 			)
 
+			// TODO: Phase 2 will use tenant_id from X-Tenant-ID header
 			c.Set("user_id", user.ID)
-			c.Set("org_id", user.OrganizationID)
-			c.Set("role", user.Role)
+			c.Set("tenant_id", activeMembership.TenantID)
+			c.Set("role", activeMembership.Role)
 			c.Set("auth0_id", user.Auth0ID)
 			c.Next()
 		}
@@ -135,14 +163,41 @@ func Middleware(cfg *config.Config, logger *slog.Logger, userService *users.Serv
 			return
 		}
 
+		// Get user's tenant memberships
+		memberships, err := tenantService.ListUserTenants(c.Request.Context(), user.ID)
+		if err != nil || len(memberships) == 0 {
+			logger.Error("failed to get user memberships",
+				slog.String("user_id", user.ID),
+				slog.String("error", err.Error()),
+			)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "user has no tenant memberships"})
+			return
+		}
+
+		// Use last active tenant if set, otherwise use first membership
+		var activeMembership *tenants.TenantMembership
+		if user.LastActiveTenantID != nil {
+			for _, m := range memberships {
+				if m.TenantID == *user.LastActiveTenantID {
+					activeMembership = m
+					break
+				}
+			}
+		}
+		if activeMembership == nil {
+			activeMembership = memberships[0]
+		}
+
 		logger.Debug("user authenticated",
 			slog.String("user_id", user.ID),
-			slog.String("org_id", user.OrganizationID),
+			slog.String("tenant_id", activeMembership.TenantID),
+			slog.String("role", activeMembership.Role),
 		)
 
+		// TODO: Phase 2 will use tenant_id from X-Tenant-ID header
 		c.Set("user_id", user.ID)
-		c.Set("org_id", user.OrganizationID)
-		c.Set("role", user.Role)
+		c.Set("tenant_id", activeMembership.TenantID)
+		c.Set("role", activeMembership.Role)
 		c.Set("auth0_id", user.Auth0ID)
 
 		c.Next()

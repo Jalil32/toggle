@@ -9,9 +9,9 @@ import (
 )
 
 type Repository interface {
-	Create(ctx context.Context, orgID, name string) (*Project, error)
+	Create(ctx context.Context, tenantID, name string) (*Project, error)
 	GetByID(ctx context.Context, id string) (*Project, error)
-	ListByOrgID(ctx context.Context, orgID string) ([]Project, error)
+	ListByTenantID(ctx context.Context, tenantID string) ([]Project, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -23,7 +23,7 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &postgresRepo{db: db}
 }
 
-func (r *postgresRepo) Create(ctx context.Context, orgID, name string) (*Project, error) {
+func (r *postgresRepo) Create(ctx context.Context, tenantID, name string) (*Project, error) {
 	apiKey, err := generateAPIKey()
 	if err != nil {
 		return nil, err
@@ -31,10 +31,10 @@ func (r *postgresRepo) Create(ctx context.Context, orgID, name string) (*Project
 
 	var project Project
 	err = r.db.QueryRowxContext(ctx, `
-		INSERT INTO projects (organization_id, name, client_api_key)
+		INSERT INTO projects (tenant_id, name, client_api_key)
 		VALUES ($1, $2, $3)
-		RETURNING id, organization_id, name, client_api_key, created_at, updated_at
-	`, orgID, name, apiKey).StructScan(&project)
+		RETURNING id, tenant_id, name, client_api_key, created_at, updated_at
+	`, tenantID, name, apiKey).StructScan(&project)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (r *postgresRepo) Create(ctx context.Context, orgID, name string) (*Project
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*Project, error) {
 	var project Project
 	err := r.db.GetContext(ctx, &project, `
-		SELECT id, organization_id, name, client_api_key, created_at, updated_at
+		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
 		FROM projects WHERE id = $1
 	`, id)
 	if err != nil {
@@ -53,13 +53,13 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*Project, error)
 	return &project, nil
 }
 
-func (r *postgresRepo) ListByOrgID(ctx context.Context, orgID string) ([]Project, error) {
+func (r *postgresRepo) ListByTenantID(ctx context.Context, tenantID string) ([]Project, error) {
 	var projects []Project
 	err := r.db.SelectContext(ctx, &projects, `
-		SELECT id, organization_id, name, client_api_key, created_at, updated_at
-		FROM projects WHERE organization_id = $1
+		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
+		FROM projects WHERE tenant_id = $1
 		ORDER BY created_at DESC
-	`, orgID)
+	`, tenantID)
 	if err != nil {
 		return nil, err
 	}
