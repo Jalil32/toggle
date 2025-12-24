@@ -10,6 +10,7 @@ import (
 	flags "github.com/jalil32/toggle/internal/flags"
 	"github.com/jalil32/toggle/internal/middleware"
 	"github.com/jalil32/toggle/internal/pkg/transaction"
+	"github.com/jalil32/toggle/internal/pkg/validator"
 	"github.com/jalil32/toggle/internal/projects"
 	"github.com/jalil32/toggle/internal/tenants"
 	"github.com/jalil32/toggle/internal/users"
@@ -18,6 +19,9 @@ import (
 func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sqlx.DB) error {
 	// Unit of Work
 	uow := transaction.NewUnitOfWork(db)
+
+	// Validators
+	tenantValidator := validator.NewTenantValidator(db)
 
 	// Repositories
 	tenantRepo := tenants.NewRepository(db)
@@ -29,7 +33,7 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 	tenantService := tenants.NewService(tenantRepo, logger)
 	userService := users.NewService(userRepo, tenantRepo, uow, logger)
 	projectService := projects.NewService(projectRepo, logger)
-	flagService := flags.NewService(flagRepo, logger)
+	flagService := flags.NewService(flagRepo, tenantValidator, logger)
 
 	// Handlers
 	userHandler := users.NewHandler(userService, tenantService)

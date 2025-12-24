@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	tenantCtx "github.com/jalil32/toggle/internal/pkg/context"
+	appContext "github.com/jalil32/toggle/internal/pkg/context"
 	"github.com/jalil32/toggle/internal/tenants"
 )
 
@@ -14,22 +14,8 @@ import (
 // This middleware must run AFTER the Auth middleware
 func Tenant(tenantRepo tenants.Repository, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Extract user_id from previous auth middleware
-		userIDVal, exists := c.Get("user_id")
-		if !exists {
-			logger.Error("tenant middleware: user_id not found in context")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-			c.Abort()
-			return
-		}
-
-		userID, ok := userIDVal.(string)
-		if !ok {
-			logger.Error("tenant middleware: user_id is not a string")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user context"})
-			c.Abort()
-			return
-		}
+		// Extract user_id from Go context (set by auth middleware)
+		userID := appContext.MustUserID(c.Request.Context())
 
 		// Extract tenant_id from X-Tenant-ID header
 		tenantID := c.GetHeader("X-Tenant-ID")
@@ -62,13 +48,11 @@ func Tenant(tenantRepo tenants.Repository, logger *slog.Logger) gin.HandlerFunc 
 			return
 		}
 
-		// Inject tenant context into request context
-		ctx := tenantCtx.WithTenant(c.Request.Context(), tenantID, role)
+		// IMPORTANT: This middleware OVERWRITES tenant_id and role from Auth middleware
+		// when X-Tenant-ID header is present (tenant switching).
+		// user_id and auth0_id remain unchanged from Auth middleware.
+		ctx := appContext.WithTenant(c.Request.Context(), tenantID, role)
 		c.Request = c.Request.WithContext(ctx)
-
-		// Also set in Gin context
-		c.Set("tenant_id", tenantID)
-		c.Set("role", role)
 
 		logger.Debug("tenant middleware: tenant context set",
 			slog.String("user_id", userID),

@@ -4,6 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	appContext "github.com/jalil32/toggle/internal/pkg/context"
+	pkgErrors "github.com/jalil32/toggle/internal/pkg/errors"
 )
 
 type Handler struct {
@@ -28,7 +31,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	tenantID := c.GetString("tenant_id")
+	tenantID := appContext.MustTenantID(c.Request.Context())
 
 	project, err := h.service.Create(c.Request.Context(), tenantID, req.Name)
 	if err != nil {
@@ -40,7 +43,7 @@ func (h *Handler) Create(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
+	tenantID := appContext.MustTenantID(c.Request.Context())
 
 	projects, err := h.service.ListByTenantID(c.Request.Context(), tenantID)
 	if err != nil {
@@ -53,16 +56,15 @@ func (h *Handler) List(c *gin.Context) {
 
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
+	tenantID := appContext.MustTenantID(c.Request.Context())
 
-	project, err := h.service.GetByID(c.Request.Context(), id)
+	project, err := h.service.GetByID(c.Request.Context(), id, tenantID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
-		return
-	}
-
-	// Check tenant ownership
-	if project.TenantID != c.GetString("tenant_id") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		if pkgErrors.IsNotFoundError(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -71,20 +73,14 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
+	tenantID := appContext.MustTenantID(c.Request.Context())
 
-	// Verify ownership first
-	project, err := h.service.GetByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
-		return
-	}
-	if project.TenantID != c.GetString("tenant_id") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
-
-	if err := h.service.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := h.service.Delete(c.Request.Context(), id, tenantID); err != nil {
+		if pkgErrors.IsNotFoundError(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

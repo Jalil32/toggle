@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	appContext "github.com/jalil32/toggle/internal/pkg/context"
 )
 
 type Handler struct {
@@ -17,12 +19,12 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	// Keep backward compatible route names for now
-	r.GET("/organization", h.Get)
-	r.PUT("/organization", h.Update)
+	r.GET("/tenant", h.GetTenant)
+	r.PUT("/tenant", h.UpdateTenant)
 }
 
-func (h *Handler) Get(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
+func (h *Handler) GetTenant(c *gin.Context) {
+	tenantID := appContext.MustTenantID(c.Request.Context())
 
 	tenant, err := h.service.GetByID(c.Request.Context(), tenantID)
 	if err != nil {
@@ -37,9 +39,9 @@ type UpdateRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
-func (h *Handler) Update(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	role := c.GetString("role")
+func (h *Handler) UpdateTenant(c *gin.Context) {
+	tenantID := appContext.MustTenantID(c.Request.Context())
+	role := appContext.UserRole(c.Request.Context())
 
 	// Only owners/admins can update
 	if role != "owner" && role != "admin" {

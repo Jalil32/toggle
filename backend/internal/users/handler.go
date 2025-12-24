@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appContext "github.com/jalil32/toggle/internal/pkg/context"
 	"github.com/jalil32/toggle/internal/tenants"
 )
 
@@ -27,11 +28,7 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 
 // ListMyTenants returns all tenants that the authenticated user belongs to
 func (h *Handler) ListMyTenants(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
-		return
-	}
+	userID := appContext.MustUserID(c.Request.Context())
 
 	tenants, err := h.tenantService.ListUserTenants(c.Request.Context(), userID)
 	if err != nil {
@@ -48,11 +45,7 @@ type SetActiveTenantRequest struct {
 
 // SetActiveTenant updates the user's last active tenant
 func (h *Handler) SetActiveTenant(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
-		return
-	}
+	userID := appContext.MustUserID(c.Request.Context())
 
 	var req SetActiveTenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

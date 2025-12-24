@@ -2,7 +2,11 @@ package projects
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log/slog"
+
+	pkgErrors "github.com/jalil32/toggle/internal/pkg/errors"
 )
 
 type Service struct {
@@ -37,11 +41,19 @@ func (s *Service) Create(ctx context.Context, tenantID, name string) (*Project, 
 	return project, nil
 }
 
-func (s *Service) GetByID(ctx context.Context, id string) (*Project, error) {
-	project, err := s.repo.GetByID(ctx, id)
+func (s *Service) GetByID(ctx context.Context, id string, tenantID string) (*Project, error) {
+	project, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.logger.Debug("project not found or forbidden",
+				slog.String("id", id),
+				slog.String("tenant_id", tenantID),
+			)
+			return nil, pkgErrors.ErrNotFound
+		}
 		s.logger.Error("failed to get project",
 			slog.String("id", id),
+			slog.String("tenant_id", tenantID),
 			slog.String("error", err.Error()),
 		)
 		return nil, err
@@ -61,17 +73,28 @@ func (s *Service) ListByTenantID(ctx context.Context, tenantID string) ([]Projec
 	return projects, nil
 }
 
-func (s *Service) Delete(ctx context.Context, id string) error {
-	err := s.repo.Delete(ctx, id)
+func (s *Service) Delete(ctx context.Context, id string, tenantID string) error {
+	err := s.repo.Delete(ctx, id, tenantID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.logger.Debug("project not found or forbidden on delete",
+				slog.String("id", id),
+				slog.String("tenant_id", tenantID),
+			)
+			return pkgErrors.ErrNotFound
+		}
 		s.logger.Error("failed to delete project",
 			slog.String("id", id),
+			slog.String("tenant_id", tenantID),
 			slog.String("error", err.Error()),
 		)
 		return err
 	}
 
-	s.logger.Info("project deleted", slog.String("id", id))
+	s.logger.Info("project deleted",
+		slog.String("id", id),
+		slog.String("tenant_id", tenantID),
+	)
 
 	return nil
 }

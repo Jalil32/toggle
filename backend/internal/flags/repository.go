@@ -1,6 +1,7 @@
 package flag
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"time"
@@ -9,11 +10,12 @@ import (
 )
 
 type Repository interface {
-	Create(f *Flag) error
-	GetByID(id string) (*Flag, error)
-	List() ([]Flag, error)
-	Update(f *Flag) error
-	Delete(id string) error
+	Create(ctx context.Context, f *Flag) error
+	GetByID(ctx context.Context, id string, tenantID string) (*Flag, error)
+	List(ctx context.Context, tenantID string) ([]Flag, error)
+	ListByProject(ctx context.Context, projectID string, tenantID string) ([]Flag, error)
+	Update(ctx context.Context, f *Flag, tenantID string) error
+	Delete(ctx context.Context, id string, tenantID string) error
 }
 
 type postgresRepository struct {
@@ -24,7 +26,7 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &postgresRepository{db: db}
 }
 
-func (r *postgresRepository) Create(f *Flag) error {
+func (r *postgresRepository) Create(ctx context.Context, f *Flag) error {
 	rulesJSON, err := json.Marshal(f.Rules)
 	if err != nil {
 		return err
@@ -35,7 +37,7 @@ func (r *postgresRepository) Create(f *Flag) error {
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
-	err = r.db.QueryRow(query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
+	err = r.db.QueryRowContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
 		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return err
@@ -44,18 +46,22 @@ func (r *postgresRepository) Create(f *Flag) error {
 	return nil
 }
 
-func (r *postgresRepository) GetByID(id string) (*Flag, error) {
+func (r *postgresRepository) GetByID(ctx context.Context, id string, tenantID string) (*Flag, error) {
 	var f Flag
 	var rulesJSON []byte
 
+	// Join with projects to enforce tenant boundary
 	query := `
-		SELECT id, name, description, enabled, rules, created_at, updated_at
-		FROM flags
-		WHERE id = $1
+		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id,
+		       f.created_at, f.updated_at
+		FROM flags f
+		INNER JOIN projects p ON f.project_id = p.id
+		WHERE f.id = $1 AND p.tenant_id = $2
 	`
 
-	err := r.db.QueryRowx(query, id).Scan(
-		&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.CreatedAt, &f.UpdatedAt,
+	err := r.db.QueryRowxContext(ctx, query, id, tenantID).Scan(
+		&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
+		&f.CreatedAt, &f.UpdatedAt,
 	)
 
 	if err != nil {
@@ -69,13 +75,17 @@ func (r *postgresRepository) GetByID(id string) (*Flag, error) {
 	return &f, nil
 }
 
-func (r *postgresRepository) List() ([]Flag, error) {
+func (r *postgresRepository) List(ctx context.Context, tenantID string) ([]Flag, error) {
+	// Join with projects to enforce tenant boundary
 	query := `
-		SELECT id, name, description, enabled, rules, created_at, updated_at
-		FROM flags
-		ORDER BY created_at DESC
+		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id,
+		       f.created_at, f.updated_at
+		FROM flags f
+		INNER JOIN projects p ON f.project_id = p.id
+		WHERE p.tenant_id = $1
+		ORDER BY f.created_at DESC
 	`
-	rows, err := r.db.Queryx(query)
+	rows, err := r.db.QueryxContext(ctx, query, tenantID)
 
 	if err != nil {
 		return nil, err
@@ -89,7 +99,8 @@ func (r *postgresRepository) List() ([]Flag, error) {
 		var f Flag
 		var rulesJSON []byte
 
-		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.CreatedAt, &f.UpdatedAt)
+		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
+			&f.CreatedAt, &f.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -108,19 +119,69 @@ func (r *postgresRepository) List() ([]Flag, error) {
 	return flags, nil
 }
 
-func (r *postgresRepository) Update(f *Flag) error {
+// ListByProject returns all flags for a specific project within a tenant
+func (r *postgresRepository) ListByProject(ctx context.Context, projectID string, tenantID string) ([]Flag, error) {
+	query := `
+		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id,
+		       f.created_at, f.updated_at
+		FROM flags f
+		INNER JOIN projects p ON f.project_id = p.id
+		WHERE f.project_id = $1 AND p.tenant_id = $2
+		ORDER BY f.created_at DESC
+	`
+	rows, err := r.db.QueryxContext(ctx, query, projectID, tenantID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var flags []Flag
+
+	for rows.Next() {
+		var f Flag
+		var rulesJSON []byte
+
+		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
+			&f.CreatedAt, &f.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal(rulesJSON, &f.Rules); err != nil {
+			return nil, err
+		}
+
+		flags = append(flags, f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return flags, nil
+}
+
+func (r *postgresRepository) Update(ctx context.Context, f *Flag, tenantID string) error {
 	rulesJSON, err := json.Marshal(f.Rules)
 	if err != nil {
 		return err
 	}
 
 	now := time.Now()
+
+	// Verify tenant ownership via project join
 	query := `
-		UPDATE flags
+		UPDATE flags f
 		SET name = $2, description = $3, enabled = $4, rules = $5, updated_at = $6
-		WHERE id = $1
+		FROM projects p
+		WHERE f.id = $1
+		  AND f.project_id = p.id
+		  AND p.tenant_id = $7
 	`
-	result, err := r.db.Exec(query, f.ID, f.Name, f.Description, f.Enabled, rulesJSON, now)
+	result, err := r.db.ExecContext(ctx, query,
+		f.ID, f.Name, f.Description, f.Enabled, rulesJSON, now, tenantID)
 	if err != nil {
 		return err
 	}
@@ -138,9 +199,16 @@ func (r *postgresRepository) Update(f *Flag) error {
 	return nil
 }
 
-func (r *postgresRepository) Delete(id string) error {
-	query := `DELETE FROM flags WHERE id = $1`
-	result, err := r.db.Exec(query, id)
+func (r *postgresRepository) Delete(ctx context.Context, id string, tenantID string) error {
+	// Verify tenant ownership via project join
+	query := `
+		DELETE FROM flags f
+		USING projects p
+		WHERE f.id = $1
+		  AND f.project_id = p.id
+		  AND p.tenant_id = $2
+	`
+	result, err := r.db.ExecContext(ctx, query, id, tenantID)
 	if err != nil {
 		return err
 	}

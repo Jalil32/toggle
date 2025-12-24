@@ -1,0 +1,565 @@
+openapi: 3.0.3
+info:
+  title: Toggle Feature Flag Management API
+  description: |
+    Multi-tenant feature flag management system with Auth0 authentication.
+
+    ## Authentication
+    Protected endpoints require a valid Auth0 JWT token in the Authorization header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Multi-tenancy & Security Model
+
+    ### Resource Hierarchy
+    All resources follow a strict tenant isolation model:
+    - **Tenants** → Users (1:N)
+    - **Tenants** → Projects (1:N)
+    - **Projects** → Flags (1:N)
+
+    ### Tenant Scoping
+    Tenant-scoped endpoints require the `X-Tenant-ID` header:
+    ```
+    X-Tenant-ID: <tenant-uuid>
+    ```
+
+    ### Security Enforcement
+    - **Database-Level Isolation**: All queries enforce tenant boundaries via INNER JOINs
+    - **Zero Cross-Tenant Access**: Attempting to access resources from another tenant returns `404 Not Found` (prevents resource enumeration)
+    - **Flag Creation Validation**: Creating a flag requires `project_id` that belongs to the tenant specified in `X-Tenant-ID`
+    - **Composite Key Filtering**: Update/Delete operations use both resource ID and tenant ID
+
+    ### Error Responses
+    - `401 Unauthorized`: Missing or invalid Auth0 token
+    - `404 Not Found`: Resource doesn't exist OR belongs to a different tenant (prevents enumeration attacks)
+    - `400 Bad Request`: Invalid input or validation errors
+    - `500 Internal Server Error`: Server-side errors
+
+  version: 1.0.0
+  contact:
+    name: Toggle API Support
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+  - url: https://api.toggle.example.com/api/v1
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Users
+    description: User management and profile operations
+  - name: Tenants
+    description: Tenant/organization management
+  - name: Projects
+    description: Project management (tenant-scoped)
+  - name: Flags
+    description: Feature flag management (tenant-scoped)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is running
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /me/tenants:
+    get:
+      summary: List my tenants
+      description: Returns all tenants that the authenticated user belongs to
+      tags:
+        - Me
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tenant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /me/active-tenant:
+    put:
+      summary: Set active tenant
+      description: Updates the user's last active tenant
+      tags:
+        - Me
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetActiveTenantRequest'
+      responses:
+        '200':
+          description: Active tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetActiveTenantResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Tenant endpoints (auth + tenant-scoped)
+  /tenants:
+    get:
+      summary: Get tenant by ID
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Tenant
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    
+
+  # Project endpoints (auth + tenant-scoped)
+  /projects:
+    get:
+      summary: List projects
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: List of projects
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Flag endpoints (auth + tenant-scoped)
+  /flags:
+    get:
+      summary: List all flags
+      description: Returns all flags for projects belonging to the specified tenant
+      tags:
+        - Flags
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: List of flags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Flag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a new flag
+      description: |
+        Creates a new feature flag within a project. The project must belong to the tenant specified in X-Tenant-ID header.
+        Returns 404 if project doesn't exist or belongs to another tenant (prevents enumeration).
+      tags:
+        - Flags
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFlagRequest'
+      responses:
+        '201':
+          description: Flag created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Project not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /flags/{id}:
+    get:
+      summary: Get a flag by ID
+      description: |
+        Retrieves a specific flag. Returns 404 if flag doesn't exist or belongs to another tenant (prevents enumeration).
+      tags:
+        - Flags
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Flag retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '404':
+          description: Flag not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update a flag
+      description: |
+        Updates an existing flag. Returns 404 if flag doesn't exist or belongs to another tenant.
+      tags:
+        - Flags
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFlagRequest'
+      responses:
+        '200':
+          description: Flag updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Flag not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete a flag
+      description: |
+        Deletes a flag. Returns 404 if flag doesn't exist or belongs to another tenant.
+      tags:
+        - Flags
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Flag deleted successfully
+        '404':
+          description: Flag not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /flags/{id}/toggle:
+    patch:
+      summary: Toggle a flag's enabled state
+      description: |
+        Toggles the enabled state of a flag (enabled → disabled, disabled → enabled).
+        Returns 404 if flag doesn't exist or belongs to another tenant.
+      tags:
+        - Flags
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Flag toggled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '404':
+          description: Flag not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Auth0 JWT token
+
+  parameters:
+    TenantHeader:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Tenant/Organization ID for scoping requests
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+  schemas:
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Tenant unique identifier
+        name:
+          type: string
+          description: Tenant/Organization name
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+
+    SetActiveTenantRequest:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+          description: The tenant ID to set as active
+      required:
+        - tenant_id
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Project unique identifier
+        name:
+          type: string
+          description: Project name
+        description:
+          type: string
+          description: Project description
+        tenant_id:
+          type: string
+          format: uuid
+          description: Tenant ID that owns this project
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - tenant_id
+
+    Rule:
+      type: object
+      description: Feature flag evaluation rule
+      properties:
+        id:
+          type: string
+          description: Rule identifier
+        attribute:
+          type: string
+          description: Attribute to evaluate (e.g., userId, country)
+        operator:
+          type: string
+          enum: [equals, not_equals, in, not_in, greater_than, less_than]
+          description: Comparison operator
+        value:
+          description: Value(s) to compare against (string, number, array)
+      required:
+        - attribute
+        - operator
+        - value
+
+    Flag:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Flag unique identifier
+        name:
+          type: string
+          description: Flag name (unique within project)
+        description:
+          type: string
+          description: Flag description
+        enabled:
+          type: boolean
+          description: Whether the flag is globally enabled
+          default: false
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+          description: Evaluation rules for conditional rollout
+          default: []
+        project_id:
+          type: string
+          format: uuid
+          description: Project ID this flag belongs to
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - enabled
+        - project_id
+
+    CreateFlagRequest:
+      type: object
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: Project ID (must belong to tenant specified in X-Tenant-ID header)
+        name:
+          type: string
+          description: Flag name (unique within project)
+        description:
+          type: string
+          description: Flag description
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+          description: Evaluation rules
+          default: []
+      required:
+        - project_id
+        - name
+
+    UpdateFlagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated flag name
+        description:
+          type: string
+          description: Updated description
+        enabled:
+          type: boolean
+          description: Updated enabled state
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+          description: Updated evaluation rules
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
