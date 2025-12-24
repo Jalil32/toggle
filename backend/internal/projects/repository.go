@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -24,6 +25,25 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &postgresRepo{db: db}
 }
 
+// DBContext is an interface that both *sqlx.DB and *sqlx.Tx implement
+type DBContext interface {
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
+	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+}
+
+// getDB returns the transaction from context if present, otherwise returns the DB
+func (r *postgresRepo) getDB(ctx context.Context) DBContext {
+	if tx, ok := transaction.GetTx(ctx); ok {
+		return tx
+	}
+	return r.db
+}
+
 func (r *postgresRepo) Create(ctx context.Context, tenantID, name string) (*Project, error) {
 	apiKey, err := generateAPIKey()
 	if err != nil {
@@ -31,7 +51,7 @@ func (r *postgresRepo) Create(ctx context.Context, tenantID, name string) (*Proj
 	}
 
 	var project Project
-	err = r.db.QueryRowxContext(ctx, `
+	err = r.getDB(ctx).QueryRowxContext(ctx, `
 		INSERT INTO projects (tenant_id, name, client_api_key)
 		VALUES ($1, $2, $3)
 		RETURNING id, tenant_id, name, client_api_key, created_at, updated_at
@@ -44,7 +64,7 @@ func (r *postgresRepo) Create(ctx context.Context, tenantID, name string) (*Proj
 
 func (r *postgresRepo) GetByID(ctx context.Context, id string, tenantID string) (*Project, error) {
 	var project Project
-	err := r.db.GetContext(ctx, &project, `
+	err := r.getDB(ctx).GetContext(ctx, &project, `
 		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
 		FROM projects WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID)
@@ -55,8 +75,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string, tenantID string) 
 }
 
 func (r *postgresRepo) ListByTenantID(ctx context.Context, tenantID string) ([]Project, error) {
-	var projects []Project
-	err := r.db.SelectContext(ctx, &projects, `
+	projects := []Project{} // Initialize as empty slice instead of nil
+	err := r.getDB(ctx).SelectContext(ctx, &projects, `
 		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
 		FROM projects WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -68,7 +88,7 @@ func (r *postgresRepo) ListByTenantID(ctx context.Context, tenantID string) ([]P
 }
 
 func (r *postgresRepo) Delete(ctx context.Context, id string, tenantID string) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := r.getDB(ctx).ExecContext(ctx, `
 		DELETE FROM projects WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID)
 	if err != nil {

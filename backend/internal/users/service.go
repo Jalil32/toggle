@@ -109,6 +109,9 @@ func (s *Service) GetOrCreate(ctx context.Context, auth0ID, firstname, lastname 
 			return fmt.Errorf("update last active tenant: %w", err)
 		}
 
+		// Update the in-memory user object to reflect the database change
+		user.LastActiveTenantID = &tenant.ID
+
 		s.logger.Info("successfully created new user and tenant",
 			slog.String("user_id", user.ID),
 			slog.String("tenant_id", tenant.ID),
