@@ -13,6 +13,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, tenantID, name string) (*Project, error)
 	GetByID(ctx context.Context, id string, tenantID string) (*Project, error)
+	GetByAPIKey(ctx context.Context, apiKey string) (*Project, error)
 	ListByTenantID(ctx context.Context, tenantID string) ([]Project, error)
 	Delete(ctx context.Context, id string, tenantID string) error
 }
@@ -59,6 +60,20 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string, tenantID string) 
 		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
 		FROM projects WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return &project, nil
+}
+
+func (r *postgresRepo) GetByAPIKey(ctx context.Context, apiKey string) (*Project, error) {
+	var project Project
+	executor := r.getDB(ctx)
+
+	err := sqlx.GetContext(ctx, executor, &project, `
+		SELECT id, tenant_id, name, client_api_key, created_at, updated_at
+		FROM projects WHERE client_api_key = $1
+	`, apiKey)
 	if err != nil {
 		return nil, err
 	}

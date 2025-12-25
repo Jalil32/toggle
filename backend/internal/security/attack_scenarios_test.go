@@ -173,6 +173,7 @@ func TestSQLInjection_FlagDescription_IsSafelyHandled(t *testing.T) {
 				Enabled:     false,
 				ProjectID:   project.ID,
 				Rules:       []flagspkg.Rule{},
+				RuleLogic:   "AND",
 			}
 
 			err := repo.Create(ctx, flag)

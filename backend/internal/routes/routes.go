@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/jalil32/toggle/config"
+	"github.com/jalil32/toggle/internal/evaluation"
 	flags "github.com/jalil32/toggle/internal/flags"
 	"github.com/jalil32/toggle/internal/middleware"
 	"github.com/jalil32/toggle/internal/pkg/transaction"
@@ -34,12 +35,14 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 	userService := users.NewService(userRepo, tenantRepo, uow, logger)
 	projectService := projects.NewService(projectRepo, logger)
 	flagService := flags.NewService(flagRepo, tenantValidator, logger)
+	evaluationService := evaluation.NewService(flagRepo, logger)
 
 	// Handlers
 	userHandler := users.NewHandler(userService, tenantService)
 	tenantHandler := tenants.NewHandler(tenantService)
 	projectHandler := projects.NewHandler(projectService)
 	flagHandler := flags.NewHandler(flagService)
+	evaluationHandler := evaluation.NewHandler(evaluationService)
 
 	// Routes
 	api := router.Group("/api/v1")
@@ -48,6 +51,13 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// SDK routes (API key authentication, no Auth0)
+	sdk := api.Group("/sdk")
+	sdk.Use(middleware.APIKey(projectRepo, logger))
+	{
+		evaluationHandler.RegisterRoutes(sdk)
+	}
 
 	// Protected routes (auth required)
 	protected := api.Group("")

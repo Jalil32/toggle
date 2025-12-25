@@ -35,14 +35,17 @@ CREATE TABLE IF NOT EXISTS flags (
     description TEXT,
     enabled BOOLEAN NOT NULL DEFAULT false,
     rules JSONB NOT NULL DEFAULT '[]',
+    rule_logic VARCHAR(10) NOT NULL DEFAULT 'AND',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT rule_logic_check CHECK (rule_logic IN ('AND', 'OR'))
 );
 
 CREATE INDEX idx_users_last_active_tenant ON users(last_active_tenant_id);
 CREATE INDEX idx_users_auth0 ON users(auth0_id);
 CREATE INDEX idx_projects_tenant ON projects(tenant_id);
 CREATE INDEX idx_flags_project ON flags(project_id);
+CREATE INDEX idx_flags_rule_logic ON flags(rule_logic);
 CREATE INDEX idx_tenants_slug ON tenants(slug);
 -- +goose StatementEnd
 

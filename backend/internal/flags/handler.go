@@ -46,10 +46,16 @@ func (h *handler) Create(c *gin.Context) {
 		Description: req.Description,
 		Enabled:     false,
 		Rules:       req.Rules,
+		RuleLogic:   req.RuleLogic,
 	}
 
 	if flag.Rules == nil {
 		flag.Rules = []Rule{}
+	}
+
+	// Default to AND if not provided
+	if flag.RuleLogic == "" {
+		flag.RuleLogic = "AND"
 	}
 
 	if err := h.service.Create(c.Request.Context(), flag, tenantID); err != nil {
@@ -130,6 +136,9 @@ func (h *handler) Update(c *gin.Context) {
 	}
 	if req.Rules != nil {
 		flag.Rules = req.Rules
+	}
+	if req.RuleLogic != nil {
+		flag.RuleLogic = *req.RuleLogic
 	}
 
 	if err := h.service.Update(c.Request.Context(), flag, tenantID); err != nil {

@@ -226,6 +226,7 @@ type CreateRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	Rules       []Rule `json:"rules"`
+	RuleLogic   string `json:"rule_logic"`
 }
 
 type UpdateRequest struct {
@@ -233,4 +234,5 @@ type UpdateRequest struct {
 	Description *string `json:"description"`
 	Enabled     *bool   `json:"enabled"`
 	Rules       []Rule  `json:"rules"`
+	RuleLogic   *string `json:"rule_logic"`
 }

@@ -42,11 +42,11 @@ func (r *postgresRepository) Create(ctx context.Context, f *Flag) error {
 	}
 
 	query := `
-		INSERT INTO flags (name, description, enabled, rules, project_id)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO flags (name, description, enabled, rules, rule_logic, project_id)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
 	`
-	err = r.getDB(ctx).QueryRowxContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
+	err = r.getDB(ctx).QueryRowxContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.RuleLogic, f.ProjectID).
 		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id string, tenantID st
 
 	// Join with projects to enforce tenant boundary
 	query := `
-		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id,
+		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id,
 		       f.created_at, f.updated_at
 		FROM flags f
 		INNER JOIN projects p ON f.project_id = p.id
@@ -69,7 +69,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id string, tenantID st
 	`
 
 	err := r.getDB(ctx).QueryRowxContext(ctx, query, id, tenantID).Scan(
-		&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
+		&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.RuleLogic, &f.ProjectID,
 		&f.CreatedAt, &f.UpdatedAt,
 	)
 
@@ -87,7 +87,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id string, tenantID st
 func (r *postgresRepository) List(ctx context.Context, tenantID string) ([]Flag, error) {
 	// Join with projects to enforce tenant boundary
 	query := `
-		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id,
+		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id,
 		       f.created_at, f.updated_at
 		FROM flags f
 		INNER JOIN projects p ON f.project_id = p.id
@@ -108,7 +108,7 @@ func (r *postgresRepository) List(ctx context.Context, tenantID string) ([]Flag,
 		var f Flag
 		var rulesJSON []byte
 
-		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
+		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.RuleLogic, &f.ProjectID,
 			&f.CreatedAt, &f.UpdatedAt)
 		if err != nil {
 			return nil, err
@@ -131,7 +131,7 @@ func (r *postgresRepository) List(ctx context.Context, tenantID string) ([]Flag,
 // ListByProject returns all flags for a specific project within a tenant
 func (r *postgresRepository) ListByProject(ctx context.Context, projectID string, tenantID string) ([]Flag, error) {
 	query := `
-		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id,
+		SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id,
 		       f.created_at, f.updated_at
 		FROM flags f
 		INNER JOIN projects p ON f.project_id = p.id
@@ -152,7 +152,7 @@ func (r *postgresRepository) ListByProject(ctx context.Context, projectID string
 		var f Flag
 		var rulesJSON []byte
 
-		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
+		err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.RuleLogic, &f.ProjectID,
 			&f.CreatedAt, &f.UpdatedAt)
 		if err != nil {
 			return nil, err
@@ -183,14 +183,14 @@ func (r *postgresRepository) Update(ctx context.Context, f *Flag, tenantID strin
 	// Verify tenant ownership via project join
 	query := `
 		UPDATE flags f
-		SET name = $2, description = $3, enabled = $4, rules = $5, updated_at = $6
+		SET name = $2, description = $3, enabled = $4, rules = $5, rule_logic = $6, updated_at = $7
 		FROM projects p
 		WHERE f.id = $1
 		  AND f.project_id = p.id
-		  AND p.tenant_id = $7
+		  AND p.tenant_id = $8
 	`
 	result, err := r.getDB(ctx).ExecContext(ctx, query,
-		f.ID, f.Name, f.Description, f.Enabled, rulesJSON, now, tenantID)
+		f.ID, f.Name, f.Description, f.Enabled, rulesJSON, f.RuleLogic, now, tenantID)
 	if err != nil {
 		return err
 	}
