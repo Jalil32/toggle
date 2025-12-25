@@ -54,12 +54,8 @@ temp/
 Thumbs.db
 
 # AI Related
-AGENTS.md
-CLAUDE.md
 review_spec.md
 spec.md
 test_spec.md
-.beads/
-.claude/
 /context/
 

@@ -14,6 +14,7 @@ import (
 	flagspkg "github.com/jalil32/toggle/internal/flags"
 	"github.com/jalil32/toggle/internal/middleware"
 	pkgcontext "github.com/jalil32/toggle/internal/pkg/context"
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jalil32/toggle/internal/projects"
 	"github.com/jalil32/toggle/internal/tenants"
 	"github.com/jalil32/toggle/internal/testutil"
@@ -49,7 +50,7 @@ func TestIDEnumeration_InvalidProjectID_ReturnsConsistentError(t *testing.T) {
 		project := testutil.CreateProject(t, tx, tenant.ID, "Real Project", "api-key-123")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test 1: Valid project for valid tenant - should succeed
 		retrieved, err := repo.GetByID(ctx, project.ID, tenant.ID)
@@ -85,7 +86,7 @@ func TestIDEnumeration_InvalidFlagID_ReturnsConsistentError(t *testing.T) {
 		flag := testutil.CreateFlag(t, tx, project.ID, "real-flag", "Real Flag", true)
 
 		repo := flagspkg.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test 1: Valid flag - should succeed
 		retrieved, err := repo.GetByID(ctx, flag.ID, tenant.ID)
@@ -115,7 +116,7 @@ func TestSQLInjection_ProjectName_IsSafelyHandled(t *testing.T) {
 		tenant := testutil.CreateTenant(t, tx, "Test Tenant", "test-tenant")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// SQL injection payloads
 		maliciousNames := []string{
@@ -157,7 +158,7 @@ func TestSQLInjection_FlagDescription_IsSafelyHandled(t *testing.T) {
 		project := testutil.CreateProject(t, tx, tenant.ID, "Project", "api-key")
 
 		repo := flagspkg.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		maliciousDescriptions := []string{
 			"'; UPDATE flags SET enabled = true; --",
@@ -194,7 +195,7 @@ func TestSQLInjection_FlagDescription_IsSafelyHandled(t *testing.T) {
 func TestSQLInjection_TenantSlug_IsSafelyHandled(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		repo := tenants.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Note: Some of these might fail due to slug format validation,
 		// but they should NOT cause SQL injection
@@ -240,7 +241,7 @@ func TestHeaderInjection_MaliciousTenantID_IsRejected(t *testing.T) {
 		user := testutil.CreateUser(t, setupTx, "auth0|user", "user@example.com", "Test", "User")
 		tenant := testutil.CreateTenant(t, setupTx, "Test Tenant", "test-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenant.ID, "admin")
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router with tenant middleware
 		gin.SetMode(gin.TestMode)
@@ -298,7 +299,7 @@ func TestHeaderInjection_ValidTenantID_StillWorks(t *testing.T) {
 		user := testutil.CreateUser(t, setupTx, "auth0|user", "user@example.com", "Test", "User")
 		tenant := testutil.CreateTenant(t, setupTx, "Test Tenant", "test-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenant.ID, "admin")
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		gin.SetMode(gin.TestMode)
 		router := gin.New()
@@ -334,7 +335,7 @@ func TestMassAssignment_CannotModifyTenantID(t *testing.T) {
 		tenant2 := testutil.CreateTenant(t, tx, "Tenant 2", "tenant-2")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Create project in tenant1
 		project, err := repo.Create(ctx, tenant1.ID, "My Project")

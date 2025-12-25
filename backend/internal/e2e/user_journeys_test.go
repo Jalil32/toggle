@@ -54,7 +54,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	userService := users.NewService(userRepo, tenantRepo, uow, logger)
 
-	testutil.WithTestDB(t, func(ctx context.Context, cleanupTx *sqlx.Tx) {
+	testutil.WithTestDB(t, func(_ context.Context, cleanupTx *sqlx.Tx) {
 		// === STEP 1: New user signs in via Auth0 ===
 		auth0ID := "auth0|journey-user-123"
 		firstname := "Alice"
@@ -87,7 +87,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 		tenantID := membership.TenantID
 
 		// === STEP 3: User creates their first project ===
-		ctx = context.WithValue(context.Background(), "tx", cleanupTx)
+		ctx := transaction.InjectTx(context.Background(), cleanupTx)
 
 		project, err := projectRepo.Create(ctx, tenantID, "My First Project")
 		require.NoError(t, err, "Project creation should succeed")
@@ -137,11 +137,11 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 		assert.Less(t, totalTime.Milliseconds(), int64(500), "E2E journey should complete in <500ms")
 
 		// === Cleanup ===
-		db.Exec("DELETE FROM flags WHERE id = $1", firstFlag.ID)
-		db.Exec("DELETE FROM projects WHERE id = $1", project.ID)
-		db.Exec("DELETE FROM tenant_members WHERE user_id = $1", user.ID)
-		db.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
-		db.Exec("DELETE FROM users WHERE id = $1", user.ID)
+		_, _ = db.Exec("DELETE FROM flags WHERE id = $1", firstFlag.ID)
+		_, _ = db.Exec("DELETE FROM projects WHERE id = $1", project.ID)
+		_, _ = db.Exec("DELETE FROM tenant_members WHERE user_id = $1", user.ID)
+		_, _ = db.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM users WHERE id = $1", user.ID)
 	})
 }
 
@@ -174,7 +174,7 @@ func TestE2E_MultiTenantUserJourney(t *testing.T) {
 		testutil.CreateTenantMember(t, cleanupTx, user.ID, tenantC.ID, "member")
 
 		// Inject transaction into context for all operations
-		ctx = context.WithValue(ctx, "tx", cleanupTx)
+		ctx = transaction.InjectTx(ctx, cleanupTx)
 
 		// === STEP 1: User retrieves all their tenant memberships ===
 		memberships, err := tenantRepo.ListUserTenants(ctx, user.ID)
@@ -269,7 +269,7 @@ func TestE2E_LoadTest_CreateManyTenants(t *testing.T) {
 	flagRepo := flagspkg.NewRepository(db)
 
 	testutil.WithTestDB(t, func(ctx context.Context, cleanupTx *sqlx.Tx) {
-		ctx = context.WithValue(ctx, "tx", cleanupTx)
+		ctx = transaction.InjectTx(ctx, cleanupTx)
 
 		numTenants := 50
 		projectsPerTenant := 3

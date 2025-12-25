@@ -27,17 +27,8 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &postgresRepository{db: db}
 }
 
-// DBContext is an interface that both *sqlx.DB and *sqlx.Tx implement
-type DBContext interface {
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
-	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
-}
-
 // getDB returns the transaction from context if present, otherwise returns the DB
-func (r *postgresRepository) getDB(ctx context.Context) DBContext {
+func (r *postgresRepository) getDB(ctx context.Context) sqlx.ExtContext {
 	if tx, ok := transaction.GetTx(ctx); ok {
 		return tx
 	}
@@ -55,7 +46,7 @@ func (r *postgresRepository) Create(ctx context.Context, f *Flag) error {
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
-	err = r.getDB(ctx).QueryRowContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
+	err = r.getDB(ctx).QueryRowxContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
 		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return err

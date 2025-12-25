@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	flagspkg "github.com/jalil32/toggle/internal/flags"
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jalil32/toggle/internal/projects"
 	"github.com/jalil32/toggle/internal/testutil"
 	"github.com/jmoiron/sqlx"
@@ -54,7 +55,7 @@ func TestCascadeDelete_TenantDeletion_DeletesProjectsAndFlags(t *testing.T) {
 		flag2A1 := testutil.CreateFlag(t, tx, project2A.ID, "flag-2a-1", "Flag 2A1", true)
 
 		// Inject transaction into context
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Verify initial state
 		projectRepo := projects.NewRepository(testutil.GetTestDB())
@@ -110,7 +111,7 @@ func TestCascadeDelete_ProjectDeletion_DeletesFlags(t *testing.T) {
 		// Project B has 1 flag (control group)
 		flagB1 := testutil.CreateFlag(t, tx, projectB.ID, "flag-b-1", "Flag B1", true)
 
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 		flagRepo := flagspkg.NewRepository(testutil.GetTestDB())
 
 		// Verify initial state
@@ -157,7 +158,7 @@ func TestCascadeDelete_TenantDeletion_DeletesMemberships(t *testing.T) {
 		testutil.CreateTenantMember(t, tx, user2.ID, tenant1.ID, "member")
 		testutil.CreateTenantMember(t, tx, user1.ID, tenant2.ID, "admin") // Control group
 
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Verify initial state
 		var membershipCount int
@@ -216,40 +217,40 @@ func TestCascadeDelete_MultiLevel_VerifyIntegrity(t *testing.T) {
 		testutil.CreateFlag(t, tx, p3B.ID, "f3b1", "Flag 3B1", false)
 		testutil.CreateFlag(t, tx, p3B.ID, "f3b2", "Flag 3B2", true)
 
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Verify initial state: 3 tenants, 6 projects, 12 flags
 		var count int
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM tenants")
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM tenants")
 		assert.Equal(t, 3, count, "Should have 3 tenants")
 
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM projects")
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM projects")
 		assert.Equal(t, 6, count, "Should have 6 projects")
 
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM flags")
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM flags")
 		assert.Equal(t, 12, count, "Should have 12 flags")
 
 		// Test: Delete Tenant 2 (should delete 2 projects and 4 flags)
-		tx.ExecContext(ctx, "DELETE FROM tenants WHERE id = $1", tenant2.ID)
+		_, _ = tx.ExecContext(ctx, "DELETE FROM tenants WHERE id = $1", tenant2.ID)
 
 		// Assert: Tenant count reduced
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM tenants")
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM tenants")
 		assert.Equal(t, 2, count, "Should have 2 tenants remaining")
 
 		// Assert: Projects count reduced by 2
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM projects")
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM projects")
 		assert.Equal(t, 4, count, "Should have 4 projects remaining")
 
 		// Assert: Flags count reduced by 4
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM flags")
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM flags")
 		assert.Equal(t, 8, count, "Should have 8 flags remaining")
 
 		// Assert: Only tenant 1 and 3 data remains
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM projects WHERE tenant_id IN ($1, $2)", tenant1.ID, tenant3.ID)
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM projects WHERE tenant_id IN ($1, $2)", tenant1.ID, tenant3.ID)
 		assert.Equal(t, 4, count, "Should have all projects for tenant 1 and 3")
 
 		// Verify data integrity: all remaining flags belong to remaining projects
-		tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM flags WHERE project_id IN ($1, $2, $3, $4)", p1A.ID, p1B.ID, p3A.ID, p3B.ID)
+		_ = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM flags WHERE project_id IN ($1, $2, $3, $4)", p1A.ID, p1B.ID, p3A.ID, p3B.ID)
 		assert.Equal(t, 8, count, "All remaining flags should belong to remaining projects")
 	})
 }

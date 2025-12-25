@@ -78,7 +78,7 @@ func TestTenantMiddleware_ValidTenantID_Success(t *testing.T) {
 		user := testutil.CreateUser(t, setupTx, "auth0|test-user", "test@example.com", "Test", "User")
 		tenant := testutil.CreateTenant(t, setupTx, "Test Tenant", "test-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenant.ID, "admin")
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router
 		router := setupTestRouter(tenantRepo)
@@ -120,7 +120,7 @@ func TestTenantMiddleware_MissingHeader_Returns400(t *testing.T) {
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
 		user := testutil.CreateUser(t, setupTx, "auth0|test-user", "test@example.com", "Test", "User")
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router
 		router := setupTestRouter(tenantRepo)
@@ -167,7 +167,7 @@ func TestTenantMiddleware_UnauthorizedTenant_Returns403(t *testing.T) {
 		tenantB := testutil.CreateTenant(t, setupTx, "Tenant B", "tenant-b")
 		testutil.CreateTenantMember(t, setupTx, user2.ID, tenantB.ID, "owner")
 
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router
 		router := setupTestRouter(tenantRepo)
@@ -216,7 +216,7 @@ func TestTenantMiddleware_TenantSwitching_OverridesAuthContext(t *testing.T) {
 
 		testutil.SetUserLastActiveTenant(t, setupTx, user.ID, tenantA.ID) // Last active is A
 
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router
 		router := setupTestRouter(tenantRepo)
@@ -267,7 +267,7 @@ func TestTenantMiddleware_MultipleRoles_ReturnsCorrectRole(t *testing.T) {
 		tenantMember := testutil.CreateTenant(t, setupTx, "Member Tenant", "member-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenantMember.ID, "member")
 
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router
 		router := setupTestRouter(tenantRepo)
@@ -315,7 +315,7 @@ func TestTenantMiddleware_InvalidTenantID_Returns403(t *testing.T) {
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
 		user := testutil.CreateUser(t, setupTx, "auth0|test-user", "test@example.com", "Test", "User")
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Setup router
 		router := setupTestRouter(tenantRepo)

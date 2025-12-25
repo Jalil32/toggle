@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jalil32/toggle/internal/projects"
 	"github.com/jalil32/toggle/internal/testutil"
 	"github.com/jmoiron/sqlx"
@@ -51,7 +52,7 @@ func TestRepository_ListByTenantID_OnlyReturnsTenantProjects(t *testing.T) {
 		repo := projects.NewRepository(testutil.GetTestDB())
 
 		// Inject transaction into context
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test: List projects for Tenant 1
 		tenant1Projects, err := repo.ListByTenantID(ctx, tenant1.ID)
@@ -108,7 +109,7 @@ func TestRepository_GetByID_EnforcesTenantBoundary(t *testing.T) {
 		project2 := testutil.CreateProject(t, tx, tenant2.ID, "Project 2", "api-key-2")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test: Tenant 1 can access their own project
 		retrieved, err := repo.GetByID(ctx, project1.ID, tenant1.ID)
@@ -148,7 +149,7 @@ func TestRepository_Delete_EnforcesTenantBoundary(t *testing.T) {
 		project2 := testutil.CreateProject(t, tx, tenant2.ID, "Project 2", "api-key-2")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test: Tenant 2 CANNOT delete Tenant 1's project
 		err := repo.Delete(ctx, project1.ID, tenant2.ID)
@@ -183,7 +184,7 @@ func TestRepository_Create_GeneratesUniqueAPIKey(t *testing.T) {
 		tenant := testutil.CreateTenant(t, tx, "Test Tenant", "test-tenant")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Create multiple projects
 		project1, err := repo.Create(ctx, tenant.ID, "Project 1")
@@ -215,7 +216,7 @@ func TestRepository_ListByTenantID_EmptyTenant(t *testing.T) {
 		tenant := testutil.CreateTenant(t, tx, "Empty Tenant", "empty-tenant")
 
 		repo := projects.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test: List projects for empty tenant
 		projects, err := repo.ListByTenantID(ctx, tenant.ID)

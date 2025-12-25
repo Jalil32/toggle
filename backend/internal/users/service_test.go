@@ -104,7 +104,7 @@ func TestGetOrCreate_ExistingUser_ReturnsExistingUser(t *testing.T) {
 		existingTenant := testutil.CreateTenant(t, setupTx, "Jane's Workspace", "jane-workspace")
 		testutil.CreateTenantMember(t, setupTx, existingUser.ID, existingTenant.ID, "owner")
 		testutil.SetUserLastActiveTenant(t, setupTx, existingUser.ID, existingTenant.ID)
-		setupTx.Commit() // COMMIT so service can see this data
+		require.NoError(t, setupTx.Commit()) // COMMIT so service can see this data
 
 		// Act: Call GetOrCreate with existing Auth0 ID
 		user, err := userService.GetOrCreate(context.Background(), existingUser.Auth0ID, "Jane", "Smith")
@@ -141,7 +141,7 @@ func TestGetOrCreate_ExistingUserNoTenant_CreatesTenant(t *testing.T) {
 		// Setup: Create a user without any tenant membership - COMMIT so service can see it
 		setupTx, _ := db.Beginx()
 		orphanedUser := testutil.CreateUser(t, setupTx, "auth0|orphaned-456", "orphan@example.com", "Bob", "Orphan")
-		setupTx.Commit()
+		require.NoError(t, setupTx.Commit())
 
 		// Act: Call GetOrCreate - should create a tenant for the orphaned user
 		user, err := userService.GetOrCreate(context.Background(), orphanedUser.Auth0ID, "Bob", "Orphan")

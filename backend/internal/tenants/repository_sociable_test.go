@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jalil32/toggle/internal/tenants"
 	"github.com/jalil32/toggle/internal/testutil"
 	"github.com/jmoiron/sqlx"
@@ -35,7 +36,7 @@ func TestMain(m *testing.M) {
 func TestRepository_Create_DuplicateSlug_Fails(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		repo := tenants.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Create first tenant with slug "acme-corp"
 		tenant1, err := repo.Create(ctx, "Acme Corp", "acme-corp")
@@ -62,7 +63,7 @@ func TestRepository_Create_DuplicateSlug_Fails(t *testing.T) {
 func TestRepository_SlugExists_ReturnsCorrectly(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		repo := tenants.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Check non-existent slug
 		exists, err := repo.SlugExists(ctx, "nonexistent-slug")
@@ -92,7 +93,7 @@ func TestRepository_SlugExists_ReturnsCorrectly(t *testing.T) {
 func TestRepository_GetBySlug_ReturnsCorrectTenant(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		repo := tenants.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Create multiple tenants
 		tenant1 := testutil.CreateTenant(t, tx, "Company A", "company-a")
@@ -120,7 +121,7 @@ func TestRepository_GetBySlug_ReturnsCorrectTenant(t *testing.T) {
 func TestRepository_GetBySlug_NonExistent_ReturnsError(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		repo := tenants.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Test: Retrieve non-existent slug
 		retrieved, err := repo.GetBySlug(ctx, "nonexistent-slug")
@@ -136,7 +137,7 @@ func TestRepository_GetBySlug_NonExistent_ReturnsError(t *testing.T) {
 func TestRepository_CaseSensitiveSlug(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		repo := tenants.NewRepository(testutil.GetTestDB())
-		ctx = context.WithValue(ctx, "tx", tx)
+		ctx = transaction.InjectTx(ctx, tx)
 
 		// Create tenant with lowercase slug
 		tenant1, err := repo.Create(ctx, "Acme Corp", "acme-corp")
