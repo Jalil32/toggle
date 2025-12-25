@@ -88,7 +88,7 @@ func SetupTestDatabase(ctx context.Context, migrationsDir string) (*sqlx.DB, err
 		// Wrap with sqlx
 		testDB = sqlx.NewDb(db, "postgres")
 
-		log.Printf("✅ Test database initialized successfully")
+		log.Printf("Test database initialized successfully")
 	})
 
 	if setupError != nil {
@@ -113,7 +113,7 @@ func TeardownTestDatabase(ctx context.Context) error {
 		}
 	}
 
-	log.Printf("✅ Test database cleaned up successfully")
+	log.Printf("Test database cleaned up successfully")
 	return nil
 }
 

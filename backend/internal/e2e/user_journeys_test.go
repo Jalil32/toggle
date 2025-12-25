@@ -54,7 +54,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	userService := users.NewService(userRepo, tenantRepo, uow, logger)
 
-	testutil.WithTestDB(t, func(_ context.Context, cleanupTx *sqlx.Tx) {
+	testutil.WithTestDB(t, func(ctx context.Context, cleanupTx *sqlx.Tx) {
 		// === STEP 1: New user signs in via Auth0 ===
 		auth0ID := "auth0|journey-user-123"
 		firstname := "Alice"
@@ -63,7 +63,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 		startTime := time.Now()
 
 		// System automatically creates user + tenant + membership
-		user, err := userService.GetOrCreate(context.Background(), auth0ID, firstname, lastname)
+		user, err := userService.GetOrCreate(ctx, auth0ID, firstname, lastname)
 		require.NoError(t, err, "User onboarding should succeed")
 		require.NotNil(t, user)
 
@@ -76,7 +76,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 		assert.NotNil(t, user.LastActiveTenantID, "User should have default tenant")
 
 		// === STEP 2: User retrieves their tenant info ===
-		tenantMemberships, err := tenantRepo.ListUserTenants(context.Background(), user.ID)
+		tenantMemberships, err := tenantRepo.ListUserTenants(ctx, user.ID)
 		require.NoError(t, err)
 		require.Len(t, tenantMemberships, 1, "New user should have exactly one tenant")
 
@@ -87,8 +87,6 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 		tenantID := membership.TenantID
 
 		// === STEP 3: User creates their first project ===
-		ctx := transaction.InjectTx(context.Background(), cleanupTx)
-
 		project, err := projectRepo.Create(ctx, tenantID, "My First Project")
 		require.NoError(t, err, "Project creation should succeed")
 		require.NotNil(t, project)
@@ -136,12 +134,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 		// Performance assertion: entire journey should complete quickly
 		assert.Less(t, totalTime.Milliseconds(), int64(500), "E2E journey should complete in <500ms")
 
-		// === Cleanup ===
-		_, _ = db.Exec("DELETE FROM flags WHERE id = $1", firstFlag.ID)
-		_, _ = db.Exec("DELETE FROM projects WHERE id = $1", project.ID)
-		_, _ = db.Exec("DELETE FROM tenant_members WHERE user_id = $1", user.ID)
-		_, _ = db.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
-		_, _ = db.Exec("DELETE FROM users WHERE id = $1", user.ID)
+		// Cleanup handled by transaction rollback
 	})
 }
 
@@ -250,7 +243,7 @@ func TestE2E_MultiTenantUserJourney(t *testing.T) {
 		_, err = flagRepo.GetByID(ctx, flagC1.ID, tenantB.ID)
 		assert.Error(t, err, "Cross-tenant flag access should fail")
 
-		t.Log("✅ Complete multi-tenant isolation verified across 3 tenants")
+		t.Log("Complete multi-tenant isolation verified across 3 tenants")
 
 		// Cleanup handled by transaction rollback
 	})
@@ -355,7 +348,7 @@ func TestE2E_LoadTest_CreateManyTenants(t *testing.T) {
 		assert.Less(t, creationTime.Seconds(), float64(10),
 			"Creating 800 resources should take <10 seconds")
 
-		t.Log("✅ Load test passed: System performs well with 50 tenants and 800 total resources")
+		t.Log("Load test passed: System performs well with 50 tenants and 800 total resources")
 
 		// Cleanup handled by transaction rollback
 	})
