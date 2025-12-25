@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -26,6 +27,14 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &postgresRepository{db: db}
 }
 
+// getDB returns the transaction from context if present, otherwise returns the DB
+func (r *postgresRepository) getDB(ctx context.Context) sqlx.ExtContext {
+	if tx, ok := transaction.GetTx(ctx); ok {
+		return tx
+	}
+	return r.db
+}
+
 func (r *postgresRepository) Create(ctx context.Context, f *Flag) error {
 	rulesJSON, err := json.Marshal(f.Rules)
 	if err != nil {
@@ -37,7 +46,7 @@ func (r *postgresRepository) Create(ctx context.Context, f *Flag) error {
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
-	err = r.db.QueryRowContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
+	err = r.getDB(ctx).QueryRowxContext(ctx, query, f.Name, f.Description, f.Enabled, rulesJSON, f.ProjectID).
 		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return err
@@ -59,7 +68,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id string, tenantID st
 		WHERE f.id = $1 AND p.tenant_id = $2
 	`
 
-	err := r.db.QueryRowxContext(ctx, query, id, tenantID).Scan(
+	err := r.getDB(ctx).QueryRowxContext(ctx, query, id, tenantID).Scan(
 		&f.ID, &f.Name, &f.Description, &f.Enabled, &rulesJSON, &f.ProjectID,
 		&f.CreatedAt, &f.UpdatedAt,
 	)
@@ -85,7 +94,7 @@ func (r *postgresRepository) List(ctx context.Context, tenantID string) ([]Flag,
 		WHERE p.tenant_id = $1
 		ORDER BY f.created_at DESC
 	`
-	rows, err := r.db.QueryxContext(ctx, query, tenantID)
+	rows, err := r.getDB(ctx).QueryxContext(ctx, query, tenantID)
 
 	if err != nil {
 		return nil, err
@@ -129,7 +138,7 @@ func (r *postgresRepository) ListByProject(ctx context.Context, projectID string
 		WHERE f.project_id = $1 AND p.tenant_id = $2
 		ORDER BY f.created_at DESC
 	`
-	rows, err := r.db.QueryxContext(ctx, query, projectID, tenantID)
+	rows, err := r.getDB(ctx).QueryxContext(ctx, query, projectID, tenantID)
 
 	if err != nil {
 		return nil, err
@@ -180,7 +189,7 @@ func (r *postgresRepository) Update(ctx context.Context, f *Flag, tenantID strin
 		  AND f.project_id = p.id
 		  AND p.tenant_id = $7
 	`
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.getDB(ctx).ExecContext(ctx, query,
 		f.ID, f.Name, f.Description, f.Enabled, rulesJSON, now, tenantID)
 	if err != nil {
 		return err
@@ -208,7 +217,7 @@ func (r *postgresRepository) Delete(ctx context.Context, id string, tenantID str
 		  AND f.project_id = p.id
 		  AND p.tenant_id = $2
 	`
-	result, err := r.db.ExecContext(ctx, query, id, tenantID)
+	result, err := r.getDB(ctx).ExecContext(ctx, query, id, tenantID)
 	if err != nil {
 		return err
 	}
