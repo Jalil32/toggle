@@ -49,14 +49,16 @@ servers:
 tags:
   - name: Health
     description: Health check endpoints
-  - name: Users
-    description: User management and profile operations
+  - name: Me
+    description: User profile and tenant management
   - name: Tenants
     description: Tenant/organization management
   - name: Projects
     description: Project management (tenant-scoped)
   - name: Flags
     description: Feature flag management (tenant-scoped)
+  - name: SDK
+    description: SDK evaluation endpoints (API key authenticated)
 
 paths:
   /health:
@@ -76,6 +78,75 @@ paths:
                   status:
                     type: string
                     example: ok
+
+  # SDK endpoints (API key authentication)
+  /sdk/evaluate:
+    post:
+      summary: Evaluate all flags for a project
+      description: |
+        Bulk evaluation endpoint for SDKs. Returns the enabled state for all flags in a project
+        based on the provided user context. Requires API key authentication.
+      tags:
+        - SDK
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+      responses:
+        '200':
+          description: Evaluation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sdk/flags/{id}/evaluate:
+    post:
+      summary: Evaluate a single flag
+      description: |
+        Evaluates a single flag based on the provided user context.
+        Requires API key authentication.
+      tags:
+        - SDK
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Flag ID to evaluate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SingleEvaluationRequest'
+      responses:
+        '200':
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleEvaluationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /me/tenants:
     get:
@@ -130,9 +201,10 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # Tenant endpoints (auth + tenant-scoped)
-  /tenants:
+  /tenant:
     get:
-      summary: Get tenant by ID
+      summary: Get current tenant
+      description: Returns the tenant specified in the X-Tenant-ID header
       tags:
         - Tenants
       security:
@@ -141,16 +213,57 @@ paths:
         - $ref: '#/components/parameters/TenantHeader'
       responses:
         '200':
-          description: Tenant
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-    
+    put:
+      summary: Update tenant
+      description: |
+        Updates the tenant's information. Only users with 'owner' or 'admin' role can update.
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Tenant updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
 
   # Project endpoints (auth + tenant-scoped)
   /projects:
     get:
       summary: List projects
+      description: Returns all projects belonging to the specified tenant
       tags:
         - Projects
       security:
@@ -160,8 +273,120 @@ paths:
       responses:
         '200':
           description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Create a new project
+      description: Creates a new project within the specified tenant
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /projects/{id}:
+    get:
+      summary: Get a project by ID
+      description: |
+        Retrieves a specific project. Returns 404 if project doesn't exist or belongs to another tenant.
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project ID
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Project not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete a project
+      description: |
+        Deletes a project. Returns 404 if project doesn't exist or belongs to another tenant.
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project ID
+      responses:
+        '204':
+          description: Project deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Project not found or doesn't belong to tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   # Flag endpoints (auth + tenant-scoped)
   /flags:
@@ -356,6 +581,12 @@ components:
       bearerFormat: JWT
       description: Auth0 JWT token
 
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Project API key for SDK authentication
+
   parameters:
     TenantHeader:
       name: X-Tenant-ID
@@ -387,8 +618,28 @@ components:
               error:
                 type: string
 
+    Forbidden:
+      description: Forbidden - insufficient permissions or no access to tenant
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    InternalError:
+      description: Internal server error
       content:
         application/json:
           schema:
@@ -408,6 +659,9 @@ components:
         name:
           type: string
           description: Tenant/Organization name
+        slug:
+          type: string
+          description: URL-safe slug for the tenant
         created_at:
           type: string
           format: date-time
@@ -417,6 +671,7 @@ components:
       required:
         - id
         - name
+        - slug
 
     SetActiveTenantRequest:
       type: object
@@ -428,6 +683,29 @@ components:
       required:
         - tenant_id
 
+    SetActiveTenantResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: active tenant updated
+        tenant_id:
+          type: string
+          format: uuid
+          description: The tenant ID that was set as active
+      required:
+        - message
+        - tenant_id
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated tenant name
+      required:
+        - name
+
     Project:
       type: object
       properties:
@@ -438,13 +716,13 @@ components:
         name:
           type: string
           description: Project name
-        description:
-          type: string
-          description: Project description
         tenant_id:
           type: string
           format: uuid
           description: Tenant ID that owns this project
+        client_api_key:
+          type: string
+          description: API key for SDK authentication (used with X-API-Key header)
         created_at:
           type: string
           format: date-time
@@ -455,6 +733,16 @@ components:
         - id
         - name
         - tenant_id
+        - client_api_key
+
+    CreateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Project name
+      required:
+        - name
 
     Rule:
       type: object
@@ -465,17 +753,27 @@ components:
           description: Rule identifier
         attribute:
           type: string
-          description: Attribute to evaluate (e.g., userId, country)
+          description: Attribute to evaluate (e.g., userId, country, email)
+          example: country
         operator:
           type: string
-          enum: [equals, not_equals, in, not_in, greater_than, less_than]
+          enum: [equals, not_equals, in, not_in, greater_than, less_than, contains]
           description: Comparison operator
+          example: in
         value:
           description: Value(s) to compare against (string, number, array)
+          example: ["AU", "US"]
+        rollout:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percentage rollout (0-100)
+          example: 50
       required:
         - attribute
         - operator
         - value
+        - rollout
 
     Flag:
       type: object
@@ -500,6 +798,11 @@ components:
             $ref: '#/components/schemas/Rule'
           description: Evaluation rules for conditional rollout
           default: []
+        rule_logic:
+          type: string
+          enum: [AND, OR]
+          description: Logic operator for combining multiple rules
+          default: AND
         project_id:
           type: string
           format: uuid
@@ -514,6 +817,7 @@ components:
         - id
         - name
         - enabled
+        - rule_logic
         - project_id
 
     CreateFlagRequest:
@@ -535,6 +839,11 @@ components:
             $ref: '#/components/schemas/Rule'
           description: Evaluation rules
           default: []
+        rule_logic:
+          type: string
+          enum: [AND, OR]
+          description: Logic operator for combining multiple rules
+          default: AND
       required:
         - project_id
         - name
@@ -556,6 +865,78 @@ components:
           items:
             $ref: '#/components/schemas/Rule'
           description: Updated evaluation rules
+        rule_logic:
+          type: string
+          enum: [AND, OR]
+          description: Updated logic operator for combining multiple rules
+
+    EvaluationContext:
+      type: object
+      description: User context and attributes for flag evaluation
+      properties:
+        user_id:
+          type: string
+          description: User identifier
+          example: user-123
+        attributes:
+          type: object
+          additionalProperties: true
+          description: User attributes for rule evaluation (e.g., country, email, plan)
+          example:
+            country: AU
+            email: user@example.com
+            plan: premium
+      required:
+        - user_id
+
+    EvaluationRequest:
+      type: object
+      description: Request for bulk flag evaluation
+      properties:
+        context:
+          $ref: '#/components/schemas/EvaluationContext'
+      required:
+        - context
+
+    EvaluationResponse:
+      type: object
+      description: Bulk evaluation response containing all flag states
+      properties:
+        flags:
+          type: object
+          additionalProperties:
+            type: boolean
+          description: Map of flag IDs to their enabled state
+          example:
+            flag-uuid-1: true
+            flag-uuid-2: false
+            flag-uuid-3: true
+      required:
+        - flags
+
+    SingleEvaluationRequest:
+      type: object
+      description: Request for single flag evaluation
+      properties:
+        context:
+          $ref: '#/components/schemas/EvaluationContext'
+      required:
+        - context
+
+    SingleEvaluationResponse:
+      type: object
+      description: Single flag evaluation result
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the flag is enabled for this user
+        flag_id:
+          type: string
+          format: uuid
+          description: Flag identifier
+      required:
+        - enabled
+        - flag_id
 
     Error:
       type: object
