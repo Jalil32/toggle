@@ -8,10 +8,11 @@ import (
 type contextKey string
 
 const (
-	tenantIDKey contextKey = "tenant_id"
-	userRoleKey contextKey = "user_role"
-	userIDKey   contextKey = "user_id"
-	auth0IDKey  contextKey = "auth0_id"
+	tenantIDKey  contextKey = "tenant_id"
+	userRoleKey  contextKey = "user_role"
+	userIDKey    contextKey = "user_id"
+	auth0IDKey   contextKey = "auth0_id"
+	projectIDKey contextKey = "project_id"
 )
 
 var (
@@ -99,4 +100,34 @@ func Auth0ID(ctx context.Context) string {
 	}
 	auth0ID, _ := val.(string)
 	return auth0ID
+}
+
+// WithSDKAuth adds project and tenant context for SDK requests
+// This is used by the API key middleware for SDK authentication
+func WithSDKAuth(ctx context.Context, projectID, tenantID string) context.Context {
+	ctx = context.WithValue(ctx, projectIDKey, projectID)
+	ctx = context.WithValue(ctx, tenantIDKey, tenantID)
+	return ctx
+}
+
+// ProjectID extracts project ID from context (for SDK requests)
+func ProjectID(ctx context.Context) (string, error) {
+	val := ctx.Value(projectIDKey)
+	if val == nil {
+		return "", errors.New("project context not found")
+	}
+	projectID, ok := val.(string)
+	if !ok {
+		return "", errors.New("project context not found")
+	}
+	return projectID, nil
+}
+
+// MustProjectID extracts project ID and panics if not found
+func MustProjectID(ctx context.Context) string {
+	projectID, err := ProjectID(ctx)
+	if err != nil {
+		panic("project context not found - SDK middleware not configured correctly")
+	}
+	return projectID
 }

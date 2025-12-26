@@ -50,6 +50,7 @@ func TestRepository_Create_Sociable(t *testing.T) {
 			Description: "A new feature flag",
 			Enabled:     false,
 			Rules:       []flag.Rule{},
+			RuleLogic:   "AND",
 			ProjectID:   project.ID,
 		}
 
@@ -80,6 +81,7 @@ func TestRepository_GetByID_TenantIsolation(t *testing.T) {
 			Description: "Flag for tenant 1",
 			Enabled:     true,
 			Rules:       []flag.Rule{},
+			RuleLogic:   "AND",
 			ProjectID:   project1.ID,
 		}
 		require.NoError(t, repo.Create(ctx, flag1))
@@ -89,6 +91,7 @@ func TestRepository_GetByID_TenantIsolation(t *testing.T) {
 			Description: "Flag for tenant 2",
 			Enabled:     false,
 			Rules:       []flag.Rule{},
+			RuleLogic:   "AND",
 			ProjectID:   project2.ID,
 		}
 		require.NoError(t, repo.Create(ctx, flag2))
@@ -129,6 +132,7 @@ func TestRepository_List_OnlyReturnsTenantData(t *testing.T) {
 				Description: "Tenant 1 flag",
 				Enabled:     true,
 				Rules:       []flag.Rule{},
+				RuleLogic:   "AND",
 				ProjectID:   project1.ID,
 			}
 			require.NoError(t, repo.Create(ctx, f))
@@ -141,6 +145,7 @@ func TestRepository_List_OnlyReturnsTenantData(t *testing.T) {
 				Description: "Tenant 2 flag",
 				Enabled:     false,
 				Rules:       []flag.Rule{},
+				RuleLogic:   "AND",
 				ProjectID:   project2.ID,
 			}
 			require.NoError(t, repo.Create(ctx, f))
@@ -180,6 +185,7 @@ func TestRepository_Update_EnforcesTenantBoundary(t *testing.T) {
 			Description: "Original",
 			Enabled:     false,
 			Rules:       []flag.Rule{},
+			RuleLogic:   "AND",
 			ProjectID:   project1.ID,
 		}
 		require.NoError(t, repo.Create(ctx, originalFlag))
@@ -224,6 +230,7 @@ func TestRepository_Delete_EnforcesTenantBoundary(t *testing.T) {
 			Description: "Test flag",
 			Enabled:     true,
 			Rules:       []flag.Rule{},
+			RuleLogic:   "AND",
 			ProjectID:   project1.ID,
 		}
 		require.NoError(t, repo.Create(ctx, testFlag))

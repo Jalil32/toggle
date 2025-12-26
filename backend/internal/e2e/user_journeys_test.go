@@ -101,6 +101,7 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 			Enabled:     false,
 			ProjectID:   project.ID,
 			Rules:       []flagspkg.Rule{},
+			RuleLogic:   "AND",
 		}
 
 		err = flagRepo.Create(ctx, firstFlag)

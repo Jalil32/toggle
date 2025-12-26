@@ -33,6 +33,7 @@ func TestRepositoryCreate(t *testing.T) {
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				RuleLogic:   "AND",
 				ProjectID:   "test-project-id",
 			},
 			mockFn: func() {
@@ -44,6 +45,7 @@ func TestRepositoryCreate(t *testing.T) {
 						"test description",
 						false,
 						sqlmock.AnyArg(),
+						"AND",
 						"test-project-id",
 					).
 					WillReturnRows(rows)
@@ -57,6 +59,7 @@ func TestRepositoryCreate(t *testing.T) {
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				RuleLogic:   "AND",
 				ProjectID:   "test-project-id",
 			},
 			mockFn: func() {
@@ -122,9 +125,9 @@ func TestRepositoryGetByID(t *testing.T) {
 			name: "successful get",
 			id:   "test-id",
 			mockFn: func() {
-				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "project_id", "created_at", "updated_at"}).
-					AddRow("test-id", "test-flag", "test description", false, rulesJSON, "test-project-id", now, now)
-				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
+				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "rule_logic", "project_id", "created_at", "updated_at"}).
+					AddRow("test-id", "test-flag", "test description", false, rulesJSON, "AND", "test-project-id", now, now)
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
 					WithArgs("test-id", "test-tenant-id").
 					WillReturnRows(rows)
 			},
@@ -134,6 +137,7 @@ func TestRepositoryGetByID(t *testing.T) {
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				RuleLogic:   "AND",
 				CreatedAt:   now,
 				UpdatedAt:   now,
 			},
@@ -143,7 +147,7 @@ func TestRepositoryGetByID(t *testing.T) {
 			name: "not found",
 			id:   "non-existent",
 			mockFn: func() {
-				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
 					WithArgs("non-existent", "test-tenant-id").
 					WillReturnError(sql.ErrNoRows)
 			},
@@ -154,7 +158,7 @@ func TestRepositoryGetByID(t *testing.T) {
 			name: "database error",
 			id:   "test-id",
 			mockFn: func() {
-				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE f.id = \\$1 AND p.tenant_id = \\$2").
 					WithArgs("test-id", "test-tenant-id").
 					WillReturnError(sql.ErrConnDone)
 			},
@@ -210,10 +214,10 @@ func TestRepositoryList(t *testing.T) {
 		{
 			name: "successful list",
 			mockFn: func() {
-				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "project_id", "created_at", "updated_at"}).
-					AddRow("id1", "flag1", "desc1", true, rulesJSON, "test-project-id", now, now).
-					AddRow("id2", "flag2", "desc2", false, rulesJSON, "test-project-id", now, now)
-				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
+				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "rule_logic", "project_id", "created_at", "updated_at"}).
+					AddRow("id1", "flag1", "desc1", true, rulesJSON, "AND", "test-project-id", now, now).
+					AddRow("id2", "flag2", "desc2", false, rulesJSON, "AND", "test-project-id", now, now)
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
 					WithArgs("test-tenant-id").
 					WillReturnRows(rows)
 			},
@@ -223,8 +227,8 @@ func TestRepositoryList(t *testing.T) {
 		{
 			name: "empty list",
 			mockFn: func() {
-				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "project_id", "created_at", "updated_at"})
-				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
+				rows := sqlmock.NewRows([]string{"id", "name", "description", "enabled", "rules", "rule_logic", "project_id", "created_at", "updated_at"})
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
 					WithArgs("test-tenant-id").
 					WillReturnRows(rows)
 			},
@@ -234,7 +238,7 @@ func TestRepositoryList(t *testing.T) {
 		{
 			name: "database error",
 			mockFn: func() {
-				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
+				mock.ExpectQuery("SELECT f.id, f.name, f.description, f.enabled, f.rules, f.rule_logic, f.project_id, f.created_at, f.updated_at FROM flags f INNER JOIN projects p ON f.project_id = p.id WHERE p.tenant_id = \\$1 ORDER BY f.created_at DESC").
 					WithArgs("test-tenant-id").
 					WillReturnError(sql.ErrConnDone)
 			},
@@ -290,15 +294,17 @@ func TestRepositoryUpdate(t *testing.T) {
 				Description: "updated description",
 				Enabled:     true,
 				Rules:       []Rule{},
+				RuleLogic:   "AND",
 			},
 			mockFn: func() {
-				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, updated_at = \\$6 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$7").
+				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, rule_logic = \\$6, updated_at = \\$7 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$8").
 					WithArgs(
 						"test-id",
 						"updated-flag",
 						"updated description",
 						true,
 						sqlmock.AnyArg(),
+						"AND",
 						sqlmock.AnyArg(),
 						"test-tenant-id",
 					).
@@ -314,15 +320,17 @@ func TestRepositoryUpdate(t *testing.T) {
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				RuleLogic:   "AND",
 			},
 			mockFn: func() {
-				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, updated_at = \\$6 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$7").
+				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, rule_logic = \\$6, updated_at = \\$7 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$8").
 					WithArgs(
 						"non-existent",
 						"test-flag",
 						"test description",
 						false,
 						sqlmock.AnyArg(),
+						"AND",
 						sqlmock.AnyArg(),
 						"test-tenant-id",
 					).
@@ -338,15 +346,17 @@ func TestRepositoryUpdate(t *testing.T) {
 				Description: "test description",
 				Enabled:     false,
 				Rules:       []Rule{},
+				RuleLogic:   "AND",
 			},
 			mockFn: func() {
-				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, updated_at = \\$6 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$7").
+				mock.ExpectExec("UPDATE flags f SET name = \\$2, description = \\$3, enabled = \\$4, rules = \\$5, rule_logic = \\$6, updated_at = \\$7 FROM projects p WHERE f.id = \\$1 AND f.project_id = p.id AND p.tenant_id = \\$8").
 					WithArgs(
 						"test-id",
 						"test-flag",
 						"test description",
 						false,
 						sqlmock.AnyArg(),
+						"AND",
 						sqlmock.AnyArg(),
 						"test-tenant-id",
 					).

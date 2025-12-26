@@ -57,6 +57,7 @@ type Flag struct {
 	Description string
 	Enabled     bool
 	Rules       string
+	RuleLogic   string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -183,15 +184,44 @@ func CreateFlag(t *testing.T, tx *sqlx.Tx, projectID, name, description string, 
 		Description: description,
 		Enabled:     enabled,
 		Rules:       "[]",
+		RuleLogic:   "AND",
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
 	query := `
-		INSERT INTO flags (id, project_id, name, description, enabled, rules, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO flags (id, project_id, name, description, enabled, rules, rule_logic, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := tx.Exec(query, flag.ID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.CreatedAt, flag.UpdatedAt)
+	_, err := tx.Exec(query, flag.ID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.RuleLogic, flag.CreatedAt, flag.UpdatedAt)
+	if err != nil {
+		t.Fatalf("failed to create flag: %v", err)
+	}
+
+	return flag
+}
+
+// CreateFlagWithRules creates a feature flag with custom rules and rule logic
+func CreateFlagWithRules(t *testing.T, tx *sqlx.Tx, projectID, name, description string, enabled bool, rules string, ruleLogic string) *Flag {
+	t.Helper()
+
+	flag := &Flag{
+		ID:          uuid.New().String(),
+		ProjectID:   projectID,
+		Name:        name,
+		Description: description,
+		Enabled:     enabled,
+		Rules:       rules,
+		RuleLogic:   ruleLogic,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	query := `
+		INSERT INTO flags (id, project_id, name, description, enabled, rules, rule_logic, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := tx.Exec(query, flag.ID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.RuleLogic, flag.CreatedAt, flag.UpdatedAt)
 	if err != nil {
 		t.Fatalf("failed to create flag: %v", err)
 	}
