@@ -1,11 +1,15 @@
-import { LoginForm } from "@/components/login-form"
+import { LoginForm } from "@/components/login-form";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   return (
-    <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-screen w-full items-center justify-center bg-background p-6 md:p-10">
+      <div className="fixed top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-md">
         <LoginForm />
       </div>
     </div>
-  )
+  );
 }
