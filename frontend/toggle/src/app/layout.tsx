@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Auth0Provider } from "@auth0/nextjs-auth0/client";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Auth0 Next.js App",
-  description: "Next.js app with Auth0 authentication",
+  title: "Toggle",
+  description: "Feature flag management platform",
 };
 
 export default function RootLayout({
@@ -22,7 +22,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Auth0Provider>{children}</Auth0Provider>
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

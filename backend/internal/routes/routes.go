@@ -31,8 +31,12 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 	flagRepo := flags.NewRepository(db)
 
 	// Services
-	tenantService := tenants.NewService(tenantRepo, logger)
-	userService := users.NewService(userRepo, tenantRepo, uow, logger)
+	tenantService := tenants.NewService(tenantRepo, uow, logger)
+	userService := users.NewService(userRepo, logger)
+
+	// Inject users repo into tenant service (to avoid circular dependency)
+	tenantService.SetUsersRepo(userRepo)
+
 	projectService := projects.NewService(projectRepo, logger)
 	flagService := flags.NewService(flagRepo, tenantValidator, logger)
 	evaluationService := evaluation.NewService(flagRepo, logger)
@@ -67,6 +71,7 @@ func Routes(router *gin.Engine, logger *slog.Logger, cfg *config.Config, db *sql
 	userRoutes := protected.Group("/me")
 	{
 		userHandler.RegisterRoutes(userRoutes)
+		tenantHandler.RegisterUserRoutes(userRoutes)
 	}
 
 	// Tenant-scoped routes (auth + X-Tenant-ID header required)

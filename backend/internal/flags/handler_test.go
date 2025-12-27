@@ -64,9 +64,9 @@ func setupTestRouter() *gin.Engine {
 }
 
 // setupTestContext creates a test context with auth values
-func setupTestContext(userID, tenantID, role, auth0ID string) context.Context {
+func setupTestContext(userID, tenantID, role string) context.Context {
 	ctx := context.Background()
-	return appContext.WithAuth(ctx, userID, tenantID, role, auth0ID)
+	return appContext.WithAuth(ctx, userID, tenantID, role)
 }
 
 func TestHandlerCreate(t *testing.T) {
@@ -160,7 +160,7 @@ func TestHandlerCreate(t *testing.T) {
 			router.POST("/flags", h.(*handler).Create)
 
 			bodyBytes, _ := json.Marshal(tt.body)
-			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin")
 			req := httptest.NewRequest(http.MethodPost, "/flags", bytes.NewReader(bodyBytes))
 			req = req.WithContext(ctx)
 			req.Header.Set("Content-Type", "application/json")
@@ -241,7 +241,7 @@ func TestHandlerList(t *testing.T) {
 			router := setupTestRouter()
 			router.GET("/flags", h.(*handler).List)
 
-			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin")
 			req := httptest.NewRequest(http.MethodGet, "/flags", nil)
 			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
@@ -318,7 +318,7 @@ func TestHandlerGet(t *testing.T) {
 			router := setupTestRouter()
 			router.GET("/flags/:id", h.(*handler).Get)
 
-			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin")
 			req := httptest.NewRequest(http.MethodGet, "/flags/"+tt.id, nil)
 			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
@@ -427,7 +427,7 @@ func TestHandlerUpdate(t *testing.T) {
 			router.PUT("/flags/:id", h.(*handler).Update)
 
 			bodyBytes, _ := json.Marshal(tt.body)
-			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin")
 			req := httptest.NewRequest(http.MethodPut, "/flags/"+tt.id, bytes.NewReader(bodyBytes))
 			req = req.WithContext(ctx)
 			req.Header.Set("Content-Type", "application/json")
@@ -538,7 +538,7 @@ func TestHandlerToggle(t *testing.T) {
 			router := setupTestRouter()
 			router.PATCH("/flags/:id/toggle", h.(*handler).Toggle)
 
-			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin")
 			req := httptest.NewRequest(http.MethodPatch, "/flags/"+tt.id+"/toggle", nil)
 			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
@@ -597,7 +597,7 @@ func TestHandlerDelete(t *testing.T) {
 			router := setupTestRouter()
 			router.DELETE("/flags/:id", h.(*handler).Delete)
 
-			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin", "test-auth0-id")
+			ctx := setupTestContext("test-user-id", "test-tenant-id", "admin")
 			req := httptest.NewRequest(http.MethodDelete, "/flags/"+tt.id, nil)
 			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()

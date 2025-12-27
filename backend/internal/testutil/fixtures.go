@@ -20,10 +20,10 @@ type Tenant struct {
 // User represents a test user fixture
 type User struct {
 	ID                 string
-	Auth0ID            string
+	Name               string
 	Email              string
-	Firstname          string
-	Lastname           string
+	EmailVerified      bool
+	Image              *string
 	LastActiveTenantID *string
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
@@ -87,24 +87,23 @@ func CreateTenant(t *testing.T, tx *sqlx.Tx, name, slug string) *Tenant {
 }
 
 // CreateUser creates a user in the database for testing
-func CreateUser(t *testing.T, tx *sqlx.Tx, auth0ID, email, firstname, lastname string) *User {
+func CreateUser(t *testing.T, tx *sqlx.Tx, name, email string) *User {
 	t.Helper()
 
 	user := &User{
-		ID:        uuid.New().String(),
-		Auth0ID:   auth0ID,
-		Email:     email,
-		Firstname: firstname,
-		Lastname:  lastname,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:            uuid.New().String(),
+		Name:          name,
+		Email:         email,
+		EmailVerified: false,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 
 	query := `
-		INSERT INTO users (id, auth0_id, email, firstname, lastname, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO users (id, name, email, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err := tx.Exec(query, user.ID, user.Auth0ID, user.Email, user.Firstname, user.Lastname, user.CreatedAt, user.UpdatedAt)
+	_, err := tx.Exec(query, user.ID, user.Name, user.Email, user.EmailVerified, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}

@@ -1,15 +1,19 @@
-import { redirect } from "next/navigation"; // [!code ++]
-import { auth0 } from "@/lib/auth0";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 export default async function Home() {
-  const session = await auth0.getSession();
+  // Check if user is authenticated
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  // 1. If user is logged in, send them to the dashboard immediately
-  if (session?.user) {
+  // Redirect authenticated users to dashboard
+  if (session) {
     redirect("/dashboard");
   }
 
-  // 2. If no session, show the landing page
+  // Landing page for unauthenticated users
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 flex items-center justify-center p-6">
@@ -23,7 +27,7 @@ export default async function Home() {
 
           <div className="space-y-3">
             <a
-              href="/auth/login"
+              href="/login"
               className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-8 w-full"
             >
               Sign In / Sign Up

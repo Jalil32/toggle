@@ -239,7 +239,7 @@ func TestHeaderInjection_MaliciousTenantID_IsRejected(t *testing.T) {
 		// Setup: Create user and tenant
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
-		user := testutil.CreateUser(t, setupTx, "auth0|user", "user@example.com", "Test", "User")
+		user := testutil.CreateUser(t, setupTx, "Test User", "user@example.com")
 		tenant := testutil.CreateTenant(t, setupTx, "Test Tenant", "test-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenant.ID, "admin")
 		require.NoError(t, setupTx.Commit())
@@ -269,7 +269,7 @@ func TestHeaderInjection_MaliciousTenantID_IsRejected(t *testing.T) {
 			req.Header.Set("X-Tenant-ID", maliciousID)
 
 			// Inject user context
-			reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "", user.Auth0ID)
+			reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "")
 			req = req.WithContext(reqCtx)
 
 			w := httptest.NewRecorder()
@@ -297,7 +297,7 @@ func TestHeaderInjection_ValidTenantID_StillWorks(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, cleanupTx *sqlx.Tx) {
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
-		user := testutil.CreateUser(t, setupTx, "auth0|user", "user@example.com", "Test", "User")
+		user := testutil.CreateUser(t, setupTx, "Test User", "user@example.com")
 		tenant := testutil.CreateTenant(t, setupTx, "Test Tenant", "test-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenant.ID, "admin")
 		require.NoError(t, setupTx.Commit())
@@ -313,7 +313,7 @@ func TestHeaderInjection_ValidTenantID_StillWorks(t *testing.T) {
 		// Test with valid UUID
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set("X-Tenant-ID", tenant.ID)
-		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "", user.Auth0ID)
+		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "")
 		req = req.WithContext(reqCtx)
 
 		w := httptest.NewRecorder()
