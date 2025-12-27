@@ -147,8 +147,8 @@ func TestCascadeDelete_ProjectDeletion_DeletesFlags(t *testing.T) {
 func TestCascadeDelete_TenantDeletion_DeletesMemberships(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		// Setup: Create users and tenants with memberships
-		user1 := testutil.CreateUser(t, tx, "auth0|user-1", "user1@example.com", "User", "One")
-		user2 := testutil.CreateUser(t, tx, "auth0|user-2", "user2@example.com", "User", "Two")
+		user1 := testutil.CreateUser(t, tx, "User One", "user1@example.com")
+		user2 := testutil.CreateUser(t, tx, "User Two", "user2@example.com")
 
 		tenant1 := testutil.CreateTenant(t, tx, "Tenant 1", "tenant-1")
 		tenant2 := testutil.CreateTenant(t, tx, "Tenant 2", "tenant-2")

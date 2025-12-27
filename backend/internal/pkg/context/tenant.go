@@ -11,7 +11,6 @@ const (
 	tenantIDKey  contextKey = "tenant_id"
 	userRoleKey  contextKey = "user_role"
 	userIDKey    contextKey = "user_id"
-	auth0IDKey   contextKey = "auth0_id"
 	projectIDKey contextKey = "project_id"
 )
 
@@ -61,11 +60,17 @@ func MustTenantID(ctx context.Context) string {
 }
 
 // WithAuth adds all authentication values to the context
-func WithAuth(ctx context.Context, userID, tenantID, role, auth0ID string) context.Context {
+func WithAuth(ctx context.Context, userID, tenantID, role string) context.Context {
 	ctx = context.WithValue(ctx, userIDKey, userID)
 	ctx = context.WithValue(ctx, tenantIDKey, tenantID)
 	ctx = context.WithValue(ctx, userRoleKey, role)
-	ctx = context.WithValue(ctx, auth0IDKey, auth0ID)
+	return ctx
+}
+
+// WithUserOnly adds only user authentication values to the context (no tenant info)
+// This is used for new users who haven't created a tenant yet
+func WithUserOnly(ctx context.Context, userID string) context.Context {
+	ctx = context.WithValue(ctx, userIDKey, userID)
 	return ctx
 }
 
@@ -90,16 +95,6 @@ func MustUserID(ctx context.Context) string {
 		panic("user context not found - middleware not configured correctly")
 	}
 	return userID
-}
-
-// Auth0ID extracts the Auth0 ID from the context
-func Auth0ID(ctx context.Context) string {
-	val := ctx.Value(auth0IDKey)
-	if val == nil {
-		return ""
-	}
-	auth0ID, _ := val.(string)
-	return auth0ID
 }
 
 // WithSDKAuth adds project and tenant context for SDK requests

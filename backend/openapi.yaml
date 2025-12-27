@@ -170,6 +170,39 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      summary: Create a new tenant/organization
+      description: |
+        Creates a new tenant/organization with the authenticated user as owner.
+        This endpoint is used during user onboarding when a new user creates their first organization.
+        The operation is atomic and creates:
+        - Tenant record with auto-generated slug
+        - Tenant membership (user as owner)
+        - Updates user's last active tenant
+      tags:
+        - Me
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /me/active-tenant:
     put:
       summary: Set active tenant
@@ -672,6 +705,18 @@ components:
         - id
         - name
         - slug
+
+    CreateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Organization/Tenant name
+          minLength: 1
+          maxLength: 255
+          example: Acme Inc
+      required:
+        - name
 
     SetActiveTenantRequest:
       type: object

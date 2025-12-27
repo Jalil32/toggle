@@ -26,14 +26,35 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	r.PUT("/active-tenant", h.SetActiveTenant)
 }
 
+// TenantResponse represents a tenant in API responses
+type TenantResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Slug      string `json:"slug"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
 // ListMyTenants returns all tenants that the authenticated user belongs to
 func (h *Handler) ListMyTenants(c *gin.Context) {
 	userID := appContext.MustUserID(c.Request.Context())
 
-	tenants, err := h.tenantService.ListUserTenants(c.Request.Context(), userID)
+	memberships, err := h.tenantService.ListUserTenants(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch tenants"})
 		return
+	}
+
+	// Convert memberships to tenant responses
+	tenants := make([]TenantResponse, len(memberships))
+	for i, m := range memberships {
+		tenants[i] = TenantResponse{
+			ID:   m.TenantID,
+			Name: m.TenantName,
+			Slug: m.TenantSlug,
+			Role: m.Role,
+		}
 	}
 
 	c.JSON(http.StatusOK, tenants)

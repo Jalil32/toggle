@@ -10,7 +10,7 @@ type Config struct {
 	Router   RouterConfig
 	Backend  BackendConfig
 	Database PostgresConfig
-	Auth0    Auth0Config
+	JWT      JWTConfig
 }
 
 type RouterConfig struct {
@@ -30,8 +30,9 @@ type PostgresConfig struct {
 	SslMode  string
 }
 
-type Auth0Config struct {
-	Domain   string
+type JWTConfig struct {
+	JWKSURL  string
+	Issuer   string
 	Audience string
 	SkipAuth bool
 }
@@ -52,9 +53,10 @@ func LoadConfig() (*Config, error) {
 			Port:     os.Getenv("POSTGRES_PORT"),
 			SslMode:  os.Getenv("POSTGRES_SSL_MODE"),
 		},
-		Auth0: Auth0Config{
-			Domain:   os.Getenv("AUTH0_DOMAIN"),
-			Audience: os.Getenv("AUTH0_AUDIENCE"),
+		JWT: JWTConfig{
+			JWKSURL:  os.Getenv("JWT_JWKS_URL"),
+			Issuer:   os.Getenv("JWT_ISSUER"),
+			Audience: os.Getenv("JWT_AUDIENCE"),
 			SkipAuth: os.Getenv("SKIP_AUTH") == "true",
 		},
 	}

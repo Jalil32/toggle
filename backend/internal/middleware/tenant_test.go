@@ -75,7 +75,7 @@ func TestTenantMiddleware_ValidTenantID_Success(t *testing.T) {
 		// Setup: Create user, tenant, and membership - COMMIT so middleware can see it
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
-		user := testutil.CreateUser(t, setupTx, "auth0|test-user", "test@example.com", "Test", "User")
+		user := testutil.CreateUser(t, setupTx, "Test User", "test@example.com")
 		tenant := testutil.CreateTenant(t, setupTx, "Test Tenant", "test-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenant.ID, "admin")
 		require.NoError(t, setupTx.Commit())
@@ -88,7 +88,7 @@ func TestTenantMiddleware_ValidTenantID_Success(t *testing.T) {
 		req.Header.Set("X-Tenant-ID", tenant.ID)
 
 		// Inject user context (what auth middleware would do)
-		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "", user.Auth0ID)
+		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "")
 		req = req.WithContext(reqCtx)
 
 		// Execute request
@@ -119,7 +119,7 @@ func TestTenantMiddleware_MissingHeader_Returns400(t *testing.T) {
 		// Setup: Create a user
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
-		user := testutil.CreateUser(t, setupTx, "auth0|test-user", "test@example.com", "Test", "User")
+		user := testutil.CreateUser(t, setupTx, "Test User", "test@example.com")
 		require.NoError(t, setupTx.Commit())
 
 		// Setup router
@@ -130,7 +130,7 @@ func TestTenantMiddleware_MissingHeader_Returns400(t *testing.T) {
 		// NO header: req.Header.Set("X-Tenant-ID", ...)
 
 		// Inject user context
-		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "", user.Auth0ID)
+		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "")
 		req = req.WithContext(reqCtx)
 
 		// Execute request
@@ -158,12 +158,12 @@ func TestTenantMiddleware_UnauthorizedTenant_Returns403(t *testing.T) {
 		require.NoError(t, err)
 
 		// User 1 with Tenant A
-		user1 := testutil.CreateUser(t, setupTx, "auth0|user-1", "user1@example.com", "User", "One")
+		user1 := testutil.CreateUser(t, setupTx, "User One", "user1@example.com")
 		tenantA := testutil.CreateTenant(t, setupTx, "Tenant A", "tenant-a")
 		testutil.CreateTenantMember(t, setupTx, user1.ID, tenantA.ID, "owner")
 
 		// User 2 with Tenant B
-		user2 := testutil.CreateUser(t, setupTx, "auth0|user-2", "user2@example.com", "User", "Two")
+		user2 := testutil.CreateUser(t, setupTx, "User Two", "user2@example.com")
 		tenantB := testutil.CreateTenant(t, setupTx, "Tenant B", "tenant-b")
 		testutil.CreateTenantMember(t, setupTx, user2.ID, tenantB.ID, "owner")
 
@@ -177,7 +177,7 @@ func TestTenantMiddleware_UnauthorizedTenant_Returns403(t *testing.T) {
 		req.Header.Set("X-Tenant-ID", tenantB.ID) // User1 trying to access TenantB
 
 		// Inject User 1's context
-		reqCtx := pkgcontext.WithAuth(req.Context(), user1.ID, "", "", user1.Auth0ID)
+		reqCtx := pkgcontext.WithAuth(req.Context(), user1.ID, "", "")
 		req = req.WithContext(reqCtx)
 
 		// Execute request
@@ -206,7 +206,7 @@ func TestTenantMiddleware_TenantSwitching_OverridesAuthContext(t *testing.T) {
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
 
-		user := testutil.CreateUser(t, setupTx, "auth0|multi-tenant-user", "user@example.com", "Multi", "User")
+		user := testutil.CreateUser(t, setupTx, "Multi User", "user@example.com")
 
 		tenantA := testutil.CreateTenant(t, setupTx, "Tenant A", "tenant-a")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenantA.ID, "owner")
@@ -226,7 +226,7 @@ func TestTenantMiddleware_TenantSwitching_OverridesAuthContext(t *testing.T) {
 		req.Header.Set("X-Tenant-ID", tenantB.ID) // Switch to Tenant B
 
 		// Inject user context with TenantA (what auth middleware would set based on last_active)
-		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, tenantA.ID, "owner", user.Auth0ID)
+		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, tenantA.ID, "owner")
 		req = req.WithContext(reqCtx)
 
 		// Execute request
@@ -259,7 +259,7 @@ func TestTenantMiddleware_MultipleRoles_ReturnsCorrectRole(t *testing.T) {
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
 
-		user := testutil.CreateUser(t, setupTx, "auth0|role-test-user", "user@example.com", "Role", "User")
+		user := testutil.CreateUser(t, setupTx, "Role User", "user@example.com")
 
 		tenantOwner := testutil.CreateTenant(t, setupTx, "Owner Tenant", "owner-tenant")
 		testutil.CreateTenantMember(t, setupTx, user.ID, tenantOwner.ID, "owner")
@@ -275,7 +275,7 @@ func TestTenantMiddleware_MultipleRoles_ReturnsCorrectRole(t *testing.T) {
 		// Test 1: Access tenant where user is "owner"
 		req1 := httptest.NewRequest("GET", "/test", nil)
 		req1.Header.Set("X-Tenant-ID", tenantOwner.ID)
-		ctx1 := pkgcontext.WithAuth(req1.Context(), user.ID, "", "", user.Auth0ID)
+		ctx1 := pkgcontext.WithAuth(req1.Context(), user.ID, "", "")
 		req1 = req1.WithContext(ctx1)
 
 		w1 := httptest.NewRecorder()
@@ -287,7 +287,7 @@ func TestTenantMiddleware_MultipleRoles_ReturnsCorrectRole(t *testing.T) {
 		// Test 2: Access tenant where user is "member"
 		req2 := httptest.NewRequest("GET", "/test", nil)
 		req2.Header.Set("X-Tenant-ID", tenantMember.ID)
-		ctx2 := pkgcontext.WithAuth(req2.Context(), user.ID, "", "", user.Auth0ID)
+		ctx2 := pkgcontext.WithAuth(req2.Context(), user.ID, "", "")
 		req2 = req2.WithContext(ctx2)
 
 		w2 := httptest.NewRecorder()
@@ -314,7 +314,7 @@ func TestTenantMiddleware_InvalidTenantID_Returns403(t *testing.T) {
 		// Setup: Create a user
 		setupTx, err := db.Beginx()
 		require.NoError(t, err)
-		user := testutil.CreateUser(t, setupTx, "auth0|test-user", "test@example.com", "Test", "User")
+		user := testutil.CreateUser(t, setupTx, "Test User", "test@example.com")
 		require.NoError(t, setupTx.Commit())
 
 		// Setup router
@@ -325,7 +325,7 @@ func TestTenantMiddleware_InvalidTenantID_Returns403(t *testing.T) {
 		req.Header.Set("X-Tenant-ID", "00000000-0000-0000-0000-000000000000") // Non-existent UUID
 
 		// Inject user context
-		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "", user.Auth0ID)
+		reqCtx := pkgcontext.WithAuth(req.Context(), user.ID, "", "")
 		req = req.WithContext(reqCtx)
 
 		// Execute request

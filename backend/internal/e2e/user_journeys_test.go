@@ -15,8 +15,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io"
-	"log/slog"
 )
 
 func TestMain(m *testing.M) {
@@ -45,46 +43,56 @@ func TestMain(m *testing.M) {
 func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 	db := testutil.GetTestDB()
 
-	// Initialize all services (simulating production setup)
+	// Initialize repositories for testing
 	userRepo := users.NewRepository(db)
 	tenantRepo := tenants.NewRepository(db)
 	projectRepo := projects.NewRepository(db)
 	flagRepo := flagspkg.NewRepository(db)
-	uow := transaction.NewUnitOfWork(db)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	userService := users.NewService(userRepo, tenantRepo, uow, logger)
 
 	testutil.WithTestDB(t, func(ctx context.Context, cleanupTx *sqlx.Tx) {
-		// === STEP 1: New user signs in via Auth0 ===
-		auth0ID := "auth0|journey-user-123"
-		firstname := "Alice"
-		lastname := "Developer"
+		// === STEP 1: New user signs in via better-auth ===
+		// Better-auth creates the user during signup, so we simulate that here
+		user := testutil.CreateUser(t, cleanupTx, "Alice Developer", "alice@example.com")
+		require.NotNil(t, user)
+		assert.NotEmpty(t, user.ID)
+		assert.Equal(t, "Alice Developer", user.Name)
+		assert.Equal(t, "alice@example.com", user.Email)
+		assert.Nil(t, user.LastActiveTenantID, "New user should not have a tenant yet")
 
 		startTime := time.Now()
 
-		// System automatically creates user + tenant + membership
-		user, err := userService.GetOrCreate(ctx, auth0ID, firstname, lastname)
-		require.NoError(t, err, "User onboarding should succeed")
-		require.NotNil(t, user)
+		// === STEP 2: User creates their organization ===
+		// Manually create tenant + membership in the same transaction (simulating the CreateWithOwner logic)
+		tenantName := "Alice's Workspace"
+		slug := "alices-workspace"
+
+		// Create tenant
+		tenant, err := tenantRepo.Create(ctx, tenantName, slug)
+		require.NoError(t, err, "Tenant creation should succeed")
+		require.NotNil(t, tenant)
+		assert.Equal(t, tenantName, tenant.Name)
+
+		// Create membership (user as owner)
+		err = tenantRepo.CreateMembership(ctx, user.ID, tenant.ID, "owner")
+		require.NoError(t, err, "Membership creation should succeed")
+
+		// Update user's last active tenant
+		err = userRepo.UpdateLastActiveTenant(ctx, user.ID, tenant.ID)
+		require.NoError(t, err, "Update last active tenant should succeed")
 
 		onboardingTime := time.Since(startTime)
 		t.Logf("User onboarding completed in %v", onboardingTime)
 
-		// Verify user has default tenant
-		assert.NotEmpty(t, user.ID)
-		assert.Equal(t, auth0ID, user.Auth0ID)
-		assert.NotNil(t, user.LastActiveTenantID, "User should have default tenant")
-
-		// === STEP 2: User retrieves their tenant info ===
+		// === STEP 3: Verify tenant membership ===
 		tenantMemberships, err := tenantRepo.ListUserTenants(ctx, user.ID)
 		require.NoError(t, err)
-		require.Len(t, tenantMemberships, 1, "New user should have exactly one tenant")
+		require.Len(t, tenantMemberships, 1, "User should have exactly one tenant")
 
 		membership := tenantMemberships[0]
-		assert.Equal(t, "owner", membership.Role, "User should be owner of their default workspace")
-		assert.Contains(t, membership.TenantName, "Alice Developer", "Tenant should be personalized")
+		assert.Equal(t, "owner", membership.Role, "User should be owner of their workspace")
+		assert.Equal(t, tenantName, membership.TenantName)
 
-		tenantID := membership.TenantID
+		tenantID := tenant.ID
 
 		// === STEP 3: User creates their first project ===
 		project, err := projectRepo.Create(ctx, tenantID, "My First Project")
@@ -153,7 +161,7 @@ func TestE2E_MultiTenantUserJourney(t *testing.T) {
 
 	testutil.WithTestDB(t, func(ctx context.Context, cleanupTx *sqlx.Tx) {
 		// === SETUP: Create user and 3 tenants with different roles ===
-		user := testutil.CreateUser(t, cleanupTx, "auth0|multi-tenant-user", "bob@example.com", "Bob", "MultiTenant")
+		user := testutil.CreateUser(t, cleanupTx, "Bob MultiTenant", "bob@example.com")
 
 		// Tenant A: Bob is owner
 		tenantA := testutil.CreateTenant(t, cleanupTx, "Company A", "company-a")

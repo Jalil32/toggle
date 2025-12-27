@@ -36,7 +36,7 @@ func TestExample_WithTestDB(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		// Create test data using tx directly (for fixtures)
 		tenant := testutil.CreateTenant(t, tx, "Test Tenant", "test-tenant")
-		user := testutil.CreateUser(t, tx, "auth0|123", "test@example.com", "John", "Doe")
+		user := testutil.CreateUser(t, tx, "John Doe", "test@example.com")
 		testutil.CreateTenantMember(t, tx, user.ID, tenant.ID, "owner")
 
 		// Use ctx for repository calls (ctx contains the transaction)
