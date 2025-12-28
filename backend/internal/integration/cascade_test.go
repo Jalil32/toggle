@@ -47,12 +47,12 @@ func TestCascadeDelete_TenantDeletion_DeletesProjectsAndFlags(t *testing.T) {
 		project2A := testutil.CreateProject(t, tx, tenant2.ID, "Project 2A", "api-key-2a")
 
 		// Create flags for tenant 1's projects
-		flag1A1 := testutil.CreateFlag(t, tx, project1A.ID, "flag-1a-1", "Flag 1A1", false)
-		flag1A2 := testutil.CreateFlag(t, tx, project1A.ID, "flag-1a-2", "Flag 1A2", true)
-		flag1B1 := testutil.CreateFlag(t, tx, project1B.ID, "flag-1b-1", "Flag 1B1", false)
+		flag1A1 := testutil.CreateFlag(t, tx, tenant1.ID, &project1A.ID, "flag-1a-1", "Flag 1A1", false)
+		flag1A2 := testutil.CreateFlag(t, tx, tenant1.ID, &project1A.ID, "flag-1a-2", "Flag 1A2", true)
+		flag1B1 := testutil.CreateFlag(t, tx, tenant1.ID, &project1B.ID, "flag-1b-1", "Flag 1B1", false)
 
 		// Create flag for tenant 2's project (control group)
-		flag2A1 := testutil.CreateFlag(t, tx, project2A.ID, "flag-2a-1", "Flag 2A1", true)
+		flag2A1 := testutil.CreateFlag(t, tx, tenant2.ID, &project2A.ID, "flag-2a-1", "Flag 2A1", true)
 
 		// Inject transaction into context
 		ctx = transaction.InjectTx(ctx, tx)
@@ -93,9 +93,10 @@ func TestCascadeDelete_TenantDeletion_DeletesProjectsAndFlags(t *testing.T) {
 	})
 }
 
-// TestCascadeDelete_ProjectDeletion_DeletesFlags tests that
-// when a project is deleted, all associated flags are also deleted
-func TestCascadeDelete_ProjectDeletion_DeletesFlags(t *testing.T) {
+// TestCascadeDelete_ProjectDeletion_SetsProjectIDToNull tests that
+// when a project is deleted, flags remain but have their project_id set to NULL
+// (flags are tenant-scoped, not project-scoped)
+func TestCascadeDelete_ProjectDeletion_SetsProjectIDToNull(t *testing.T) {
 	testutil.WithTestDB(t, func(ctx context.Context, tx *sqlx.Tx) {
 		// Setup: Create tenant with multiple projects
 		tenant := testutil.CreateTenant(t, tx, "Test Tenant", "test-tenant")
@@ -104,12 +105,12 @@ func TestCascadeDelete_ProjectDeletion_DeletesFlags(t *testing.T) {
 		projectB := testutil.CreateProject(t, tx, tenant.ID, "Project B", "api-key-b")
 
 		// Project A has 3 flags
-		flagA1 := testutil.CreateFlag(t, tx, projectA.ID, "flag-a-1", "Flag A1", false)
-		flagA2 := testutil.CreateFlag(t, tx, projectA.ID, "flag-a-2", "Flag A2", true)
-		flagA3 := testutil.CreateFlag(t, tx, projectA.ID, "flag-a-3", "Flag A3", false)
+		flagA1 := testutil.CreateFlag(t, tx, tenant.ID, &projectA.ID, "flag-a-1", "Flag A1", false)
+		flagA2 := testutil.CreateFlag(t, tx, tenant.ID, &projectA.ID, "flag-a-2", "Flag A2", true)
+		flagA3 := testutil.CreateFlag(t, tx, tenant.ID, &projectA.ID, "flag-a-3", "Flag A3", false)
 
 		// Project B has 1 flag (control group)
-		flagB1 := testutil.CreateFlag(t, tx, projectB.ID, "flag-b-1", "Flag B1", true)
+		flagB1 := testutil.CreateFlag(t, tx, tenant.ID, &projectB.ID, "flag-b-1", "Flag B1", true)
 
 		ctx = transaction.InjectTx(ctx, tx)
 		flagRepo := flagspkg.NewRepository(testutil.GetTestDB())
@@ -125,11 +126,17 @@ func TestCascadeDelete_ProjectDeletion_DeletesFlags(t *testing.T) {
 		rowsAffected, _ := result.RowsAffected()
 		assert.Equal(t, int64(1), rowsAffected, "Should delete 1 project")
 
-		// Assert: Project A's flags are deleted
+		// Assert: Project A's flags have their project_id set to NULL (not deleted)
 		var flagCount int
 		err = tx.GetContext(ctx, &flagCount, "SELECT COUNT(*) FROM flags WHERE id IN ($1, $2, $3)", flagA1.ID, flagA2.ID, flagA3.ID)
 		require.NoError(t, err)
-		assert.Equal(t, 0, flagCount, "All flags belonging to project A should be deleted")
+		assert.Equal(t, 3, flagCount, "Flags should still exist (project_id set to NULL)")
+
+		// Verify project_id is NULL for these flags
+		var nullProjectCount int
+		err = tx.GetContext(ctx, &nullProjectCount, "SELECT COUNT(*) FROM flags WHERE id IN ($1, $2, $3) AND project_id IS NULL", flagA1.ID, flagA2.ID, flagA3.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 3, nullProjectCount, "All flags from deleted project should have NULL project_id")
 
 		// Assert: Project B's flags are unaffected
 		flagsB, err := flagRepo.ListByProject(ctx, projectB.ID, tenant.ID)
@@ -202,20 +209,20 @@ func TestCascadeDelete_MultiLevel_VerifyIntegrity(t *testing.T) {
 		p3B := testutil.CreateProject(t, tx, tenant3.ID, "Proj 3B", "key-3b")
 
 		// Each project has 2 flags
-		testutil.CreateFlag(t, tx, p1A.ID, "f1a1", "Flag 1A1", true)
-		testutil.CreateFlag(t, tx, p1A.ID, "f1a2", "Flag 1A2", false)
-		testutil.CreateFlag(t, tx, p1B.ID, "f1b1", "Flag 1B1", true)
-		testutil.CreateFlag(t, tx, p1B.ID, "f1b2", "Flag 1B2", true)
+		testutil.CreateFlag(t, tx, tenant1.ID, &p1A.ID, "f1a1", "Flag 1A1", true)
+		testutil.CreateFlag(t, tx, tenant1.ID, &p1A.ID, "f1a2", "Flag 1A2", false)
+		testutil.CreateFlag(t, tx, tenant1.ID, &p1B.ID, "f1b1", "Flag 1B1", true)
+		testutil.CreateFlag(t, tx, tenant1.ID, &p1B.ID, "f1b2", "Flag 1B2", true)
 
-		testutil.CreateFlag(t, tx, p2A.ID, "f2a1", "Flag 2A1", false)
-		testutil.CreateFlag(t, tx, p2A.ID, "f2a2", "Flag 2A2", true)
-		testutil.CreateFlag(t, tx, p2B.ID, "f2b1", "Flag 2B1", false)
-		testutil.CreateFlag(t, tx, p2B.ID, "f2b2", "Flag 2B2", false)
+		testutil.CreateFlag(t, tx, tenant2.ID, &p2A.ID, "f2a1", "Flag 2A1", false)
+		testutil.CreateFlag(t, tx, tenant2.ID, &p2A.ID, "f2a2", "Flag 2A2", true)
+		testutil.CreateFlag(t, tx, tenant2.ID, &p2B.ID, "f2b1", "Flag 2B1", false)
+		testutil.CreateFlag(t, tx, tenant2.ID, &p2B.ID, "f2b2", "Flag 2B2", false)
 
-		testutil.CreateFlag(t, tx, p3A.ID, "f3a1", "Flag 3A1", true)
-		testutil.CreateFlag(t, tx, p3A.ID, "f3a2", "Flag 3A2", true)
-		testutil.CreateFlag(t, tx, p3B.ID, "f3b1", "Flag 3B1", false)
-		testutil.CreateFlag(t, tx, p3B.ID, "f3b2", "Flag 3B2", true)
+		testutil.CreateFlag(t, tx, tenant3.ID, &p3A.ID, "f3a1", "Flag 3A1", true)
+		testutil.CreateFlag(t, tx, tenant3.ID, &p3A.ID, "f3a2", "Flag 3A2", true)
+		testutil.CreateFlag(t, tx, tenant3.ID, &p3B.ID, "f3b1", "Flag 3B1", false)
+		testutil.CreateFlag(t, tx, tenant3.ID, &p3B.ID, "f3b2", "Flag 3B2", true)
 
 		ctx = transaction.InjectTx(ctx, tx)
 

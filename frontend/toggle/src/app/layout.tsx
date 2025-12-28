@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Toggle",
   description: "Feature flag management platform",
+  icons: {
+    icon: "/toggle.svg",
+    apple: "/toggle.png",
+  },
 };
 
 export default function RootLayout({

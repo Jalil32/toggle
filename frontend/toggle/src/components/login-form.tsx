@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Eclipse } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/logo";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -90,9 +90,7 @@ export function LoginForm({
 			>
 				{/* Header */}
 				<div className="flex flex-col items-center gap-4 text-center">
-					<div className="flex size-16 items-center justify-center rounded-md bg-fuchsia-400">
-						<Eclipse className="size-10 text-primary-foreground" />
-					</div>
+					<Logo size={64} />
 					<h1 className="text-xl font-medium">
 						{success
 							? "Check your email"

@@ -23,7 +23,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Eclipse } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 const staticData = {
   user: {
@@ -78,9 +78,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2 pl-4 pt-4">
-              <div className="bg-fuchsia-400 flex size-6 items-center justify-center rounded-md">
-                <Eclipse className="text-primary-foreground size-4" />
-              </div>
+              <Logo size={24} />
               <span className="text-base font-semibold">Toggle</span>
             </div>
           </SidebarMenuItem>

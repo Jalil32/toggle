@@ -100,7 +100,7 @@ func TestServiceCreate(t *testing.T) {
 				Name:        "test-flag",
 				Description: "test description",
 				Rules:       []Rule{},
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 			},
 			mockFn:  nil,
 			wantErr: nil,
@@ -116,7 +116,7 @@ func TestServiceCreate(t *testing.T) {
 			flag: &Flag{
 				Name:        "",
 				Description: "test description",
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 			},
 			mockFn:  nil,
 			wantErr: ErrInvalidFlagData,
@@ -126,7 +126,7 @@ func TestServiceCreate(t *testing.T) {
 			flag: &Flag{
 				Name:        "test-flag",
 				Description: "test description",
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 			},
 			mockFn: func(ctx context.Context, f *Flag) error {
 				return errors.New("database error")
