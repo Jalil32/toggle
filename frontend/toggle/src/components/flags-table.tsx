@@ -68,7 +68,9 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                 const description = row.original.description;
                 return (
                     <div className="min-w-0 flex-1 flex items-center gap-4">
-                        <div className="font-medium w-48 shrink-0">{row.original.name}</div>
+                        <div className="font-medium w-48 shrink-0">
+                            {row.original.name}
+                        </div>
                         {description && (
                             <div className="text-muted-foreground min-w-0 flex-1 truncate text-sm hidden md:block">
                                 {description}
@@ -113,11 +115,18 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                 }
 
                 return (
-                    <div className="flex items-center justify-end gap-2 flex-wrap">
-                        <Badge variant="outline" className="hidden sm:inline-flex">
-                            {rules.length} {rules.length === 1 ? "rule" : "rules"}
+                    <div className="flex items-center justify-end gap-2 flex-wrap select-none">
+                        <Badge
+                            variant="outline"
+                            className="hidden sm:inline-flex"
+                        >
+                            {rules.length}{" "}
+                            {rules.length === 1 ? "rule" : "rules"}
                         </Badge>
-                        <Badge variant="outline" className="hidden md:inline-flex">
+                        <Badge
+                            variant="outline"
+                            className="hidden md:inline-flex"
+                        >
                             {timeAgo}
                         </Badge>
                         <StatusBadge
@@ -136,17 +145,23 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
 
         // Filter by search query
         if (searchQuery) {
-            filtered = filtered.filter(flag =>
-                flag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (flag.description && flag.description.toLowerCase().includes(searchQuery.toLowerCase()))
+            filtered = filtered.filter(
+                (flag) =>
+                    flag.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase()) ||
+                    (flag.description &&
+                        flag.description
+                            .toLowerCase()
+                            .includes(searchQuery.toLowerCase())),
             );
         }
 
         // Filter by status
         if (statusFilter === "enabled") {
-            filtered = filtered.filter(flag => flag.enabled);
+            filtered = filtered.filter((flag) => flag.enabled);
         } else if (statusFilter === "disabled") {
-            filtered = filtered.filter(flag => !flag.enabled);
+            filtered = filtered.filter((flag) => !flag.enabled);
         }
 
         return filtered;
@@ -180,7 +195,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
 
     return (
         <div className="flex h-full w-full flex-col gap-6">
-            <div className="flex shrink-0 items-center justify-between gap-4 px-4 lg:px-6">
+            <div className="flex shrink-0 items-center justify-between gap-4 px-4 lg:px-6 select-none">
                 <Input
                     placeholder="Search flags..."
                     value={searchQuery}
@@ -217,7 +232,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell
                                             key={cell.id}
-                                            className="px-4 lg:px-6"
+                                            className="px-4 lg:px-6 py-4"
                                         >
                                             {flexRender(
                                                 cell.column.columnDef.cell,
@@ -234,8 +249,13 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                                     className="h-24 px-4 text-center lg:px-6"
                                 >
                                     <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                        <p className="font-medium">No flags found.</p>
-                                        <p className="text-sm">Create your first feature flag to get started.</p>
+                                        <p className="font-medium">
+                                            No flags found.
+                                        </p>
+                                        <p className="text-sm">
+                                            Create your first feature flag to
+                                            get started.
+                                        </p>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -245,7 +265,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
             </div>
 
             {table.getPageCount() > 1 && (
-                <div className="flex shrink-0 flex-col items-center justify-between gap-4 border-t px-4 pt-4 lg:flex-row lg:px-6">
+                <div className="flex shrink-0 flex-col items-center justify-between gap-4 border-t px-4 pt-4 lg:flex-row lg:px-6 select-none">
                     <div className="text-muted-foreground text-sm">
                         {table.getFilteredSelectedRowModel().rows.length} of{" "}
                         {table.getFilteredRowModel().rows.length} row(s)

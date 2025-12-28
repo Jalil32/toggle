@@ -251,7 +251,7 @@ export function LoginForm({
                                     className="font-medium text-primary hover:underline"
                                     disabled={loading}
                                 >
-                                    Sign in
+                                    Login
                                 </button>
                             </>
                         )}

@@ -45,7 +45,7 @@ export default async function FlagDetailPage({ params }: PageProps) {
       <SiteHeader title={flag.name} />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+          <div className="flex flex-col gap-4 px-12 py-4 md:gap-6 md:py-6 lg:px-24">
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
@@ -60,7 +60,7 @@ export default async function FlagDetailPage({ params }: PageProps) {
               </BreadcrumbList>
             </Breadcrumb>
 
-            <FlagDetailView flag={flag} />
+            <FlagDetailView flag={flag} tenantId={tenant.id} />
           </div>
         </div>
       </div>

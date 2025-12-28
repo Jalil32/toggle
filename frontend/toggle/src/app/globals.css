@@ -110,10 +110,10 @@
     --gradient-accent-dark: oklch(0.50 0.22 270);
 
     /* Enabled Status Colors */
-    --status-enabled: oklch(0.72 0.20 145);
+    --status-enabled: oklch(0.72 0.14 166);
     --status-enabled-foreground: oklch(0.98 0 0);
-    --status-enabled-border: oklch(0.65 0.18 145);
-    --status-enabled-hover: oklch(0.78 0.18 145);
+    --status-enabled-border: oklch(0.65 0.13 166);
+    --status-enabled-hover: oklch(0.79 0.13 166);
 
     /* Disabled Status Colors */
     --status-disabled: oklch(0.55 0.12 15);
@@ -165,10 +165,10 @@
     --gradient-accent-dark: oklch(0.45 0.20 270);
 
     /* Enabled Status - Dark Mode */
-    --status-enabled: oklch(0.65 0.18 145);
+    --status-enabled: oklch(0.65 0.18 166);
     --status-enabled-foreground: oklch(0.98 0 0);
-    --status-enabled-border: oklch(0.58 0.16 145);
-    --status-enabled-hover: oklch(0.70 0.16 145);
+    --status-enabled-border: oklch(0.58 0.16 166);
+    --status-enabled-hover: oklch(0.70 0.16 166);
 
     /* Disabled Status - Dark Mode */
     --status-disabled: oklch(0.50 0.10 15);
