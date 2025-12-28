@@ -24,6 +24,11 @@ var (
 	ErrInvalidAuthHeader = errors.New("invalid authorization header format")
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+const userContextKey contextKey = "user"
+
 // JWKS represents the JSON Web Key Set structure
 type JWKS struct {
 	Keys []JWK `json:"keys"`
@@ -249,13 +254,13 @@ func (v *JWTVerifier) Middleware(next http.Handler) http.Handler {
 		}
 
 		// Add claims to request context
-		ctx := context.WithValue(r.Context(), "user", claims)
+		ctx := context.WithValue(r.Context(), userContextKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 // GetUserFromContext retrieves user claims from the request context
 func GetUserFromContext(ctx context.Context) (*BetterAuthClaims, bool) {
-	claims, ok := ctx.Value("user").(*BetterAuthClaims)
+	claims, ok := ctx.Value(userContextKey).(*BetterAuthClaims)
 	return claims, ok
 }

@@ -50,7 +50,9 @@ func ExampleProtectedHandler(verifier *JWTVerifier) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("Failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -63,7 +65,9 @@ func ExampleRouterSetup() {
 	// Public endpoint - no auth required
 	mux.HandleFunc("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 	})
 
 	// Protected endpoint - auth required
@@ -78,7 +82,9 @@ func ExampleRouterSetup() {
 	})))
 
 	log.Println("Server starting on :8080")
-	http.ListenAndServe(":8080", mux)
+	if err := http.ListenAndServe(":8080", mux); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
+	}
 }
 
 // Example: Manual token verification (without middleware)
