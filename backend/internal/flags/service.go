@@ -53,29 +53,42 @@ func (s *service) Create(ctx context.Context, f *Flag, tenantID string) error {
 		return err
 	}
 
-	// CRITICAL: Validate project belongs to tenant before creating flag
-	if err := s.validator.ValidateProjectOwnership(ctx, f.ProjectID, tenantID); err != nil {
-		s.logger.Warn("project ownership validation failed",
-			slog.String("project_id", f.ProjectID),
-			slog.String("tenant_id", tenantID),
-			slog.String("error", err.Error()),
-		)
-		return pkgErrors.ErrProjectNotInTenant
+	// Set tenant ID
+	f.TenantID = tenantID
+
+	// Validate project ownership ONLY if project_id is provided
+	if f.ProjectID != nil && *f.ProjectID != "" {
+		if err := s.validator.ValidateProjectOwnership(ctx, *f.ProjectID, tenantID); err != nil {
+			s.logger.Warn("project ownership validation failed",
+				slog.String("project_id", *f.ProjectID),
+				slog.String("tenant_id", tenantID),
+				slog.String("error", err.Error()),
+			)
+			return pkgErrors.ErrProjectNotInTenant
+		}
 	}
 
 	if err := s.repo.Create(ctx, f); err != nil {
+		projectID := "none"
+		if f.ProjectID != nil {
+			projectID = *f.ProjectID
+		}
 		s.logger.Error("failed to create flag",
 			slog.String("name", f.Name),
-			slog.String("project_id", f.ProjectID),
+			slog.String("project_id", projectID),
 			slog.String("error", err.Error()),
 		)
 		return fmt.Errorf("failed to create flag: %w", err)
 	}
 
+	projectID := "none"
+	if f.ProjectID != nil {
+		projectID = *f.ProjectID
+	}
 	s.logger.Info("flag created",
 		slog.String("id", f.ID),
 		slog.String("name", f.Name),
-		slog.String("project_id", f.ProjectID),
+		slog.String("project_id", projectID),
 		slog.String("tenant_id", tenantID),
 	)
 
@@ -143,12 +156,12 @@ func (s *service) Update(ctx context.Context, f *Flag, tenantID string) error {
 		return ErrInvalidFlagData
 	}
 
-	// Validate project ownership if project_id is being changed
-	if f.ProjectID != "" {
-		if err := s.validator.ValidateProjectOwnership(ctx, f.ProjectID, tenantID); err != nil {
+	// Validate project ownership if project_id is being set/changed
+	if f.ProjectID != nil && *f.ProjectID != "" {
+		if err := s.validator.ValidateProjectOwnership(ctx, *f.ProjectID, tenantID); err != nil {
 			s.logger.Warn("project ownership validation failed on update",
 				slog.String("flag_id", f.ID),
-				slog.String("project_id", f.ProjectID),
+				slog.String("project_id", *f.ProjectID),
 				slog.String("tenant_id", tenantID),
 			)
 			return pkgErrors.ErrProjectNotInTenant
@@ -222,14 +235,15 @@ func (s *service) validateFlag(f *Flag) error {
 }
 
 type CreateRequest struct {
-	ProjectID   string `json:"project_id" binding:"required"`
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	Rules       []Rule `json:"rules"`
-	RuleLogic   string `json:"rule_logic"`
+	ProjectID   *string `json:"project_id,omitempty"`
+	Name        string  `json:"name" binding:"required"`
+	Description string  `json:"description"`
+	Rules       []Rule  `json:"rules"`
+	RuleLogic   string  `json:"rule_logic"`
 }
 
 type UpdateRequest struct {
+	ProjectID   *string `json:"project_id,omitempty"`
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	Enabled     *bool   `json:"enabled"`

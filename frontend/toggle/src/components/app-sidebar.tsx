@@ -10,6 +10,7 @@ import {
   IconToggleRight,
   IconUser,
 } from "@tabler/icons-react";
+import { useParams } from "next/navigation";
 
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -24,29 +25,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Eclipse } from "lucide-react";
 
-const data = {
+const staticData = {
   user: {
     name: "shadcn",
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  navMain: [
-    {
-      title: "Feature Flags",
-      url: "#",
-      icon: IconToggleRight,
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Users",
-      url: "#",
-      icon: IconUserScan,
-    },
-  ],
   navSecondary: [
     {
       title: "Settings",
@@ -62,14 +46,40 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const params = useParams();
+  const slug = params?.slug as string | undefined;
+
+  const navMain = [
+    {
+      title: "Feature Flags",
+      url: slug ? `/${slug}/flags` : "#",
+      icon: IconToggleRight,
+    },
+    {
+      title: "Projects",
+      url: slug ? `/${slug}/projects` : "#",
+      icon: IconChartDots,
+    },
+    {
+      title: "Analytics",
+      url: "#",
+      icon: IconChartBar,
+    },
+    {
+      title: "Users",
+      url: "#",
+      icon: IconUserScan,
+    },
+  ];
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="pl-4 pt-4 flex items-center gap-2">
-              <div className="flex size-6 items-center justify-center rounded-md bg-fuchsia-400">
-                <Eclipse className="size-4 text-primary-foreground" />
+            <div className="flex items-center gap-2 pl-4 pt-4">
+              <div className="bg-fuchsia-400 flex size-6 items-center justify-center rounded-md">
+                <Eclipse className="text-primary-foreground size-4" />
               </div>
               <span className="text-base font-semibold">Toggle</span>
             </div>
@@ -77,11 +87,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="pl-3">
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navMain} />
+        <NavSecondary
+          items={staticData.navSecondary}
+          className="mt-auto"
+        />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={staticData.user} />
       </SidebarFooter>
     </Sidebar>
   );
