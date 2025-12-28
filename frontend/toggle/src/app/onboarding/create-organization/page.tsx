@@ -65,7 +65,7 @@ export default function CreateOrganizationPage() {
 
       if (result.success) {
         toast.success("Organization created successfully!");
-        router.push(`/${result.slug}/dashboard`);
+        router.push(`/${result.slug}/flags`);
       } else {
         toast.error(result.error || "Failed to create organization");
       }

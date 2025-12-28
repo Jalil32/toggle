@@ -36,9 +36,9 @@ export function NavMain({
                 <SidebarMenuButton tooltip={item.title} asChild isActive={isActive}>
                   <Link
                     href={item.url}
-                    className={isActive ? "font-semibold text-foreground" : "font-medium"}
+                    className={isActive ? "font-semibold text-foreground group/tab" : "font-medium group/tab"}
                   >
-                    {item.icon && <item.icon className="text-muted-foreground active:text-foreground/90 transition-colors" />}
+                    {item.icon && <item.icon className="text-muted-foreground group-hover/tab:text-sidebar-accent-foreground active:text-foreground/90" />}
                     <span className="text-[15px]">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
