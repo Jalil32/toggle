@@ -2,21 +2,100 @@ package tenants
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/jalil32/toggle/internal/pkg/slugs"
+	"github.com/jalil32/toggle/internal/pkg/transaction"
 )
 
-type Service struct {
-	repo   Repository
-	logger *slog.Logger
+// UserRepository defines the minimal interface needed from users package
+// This avoids circular dependency with users package
+type UserRepository interface {
+	UpdateLastActiveTenant(ctx context.Context, userID, tenantID string) error
 }
 
-func NewService(repo Repository, logger *slog.Logger) *Service {
+type Service struct {
+	repo      Repository
+	usersRepo UserRepository
+	uow       transaction.UnitOfWork
+	logger    *slog.Logger
+}
+
+func NewService(repo Repository, uow transaction.UnitOfWork, logger *slog.Logger) *Service {
 	return &Service{
 		repo:   repo,
+		uow:    uow,
 		logger: logger,
 	}
+}
+
+// SetUsersRepo sets the users repository (called after service initialization to avoid circular dependency)
+func (s *Service) SetUsersRepo(usersRepo UserRepository) {
+	s.usersRepo = usersRepo
+}
+
+// CreateWithOwner creates a tenant and adds the specified user as owner
+// This is an atomic operation using UnitOfWork
+func (s *Service) CreateWithOwner(ctx context.Context, name string, userID string) (*Tenant, error) {
+	var tenant *Tenant
+
+	// Execute tenant creation with ownership within a transaction
+	err := s.uow.RunInTransaction(ctx, func(txCtx context.Context) error {
+		// Generate slug from name
+		slug := slugs.Generate(name)
+
+		// Check if slug already exists
+		exists, err := s.repo.SlugExists(txCtx, slug)
+		if err != nil {
+			return fmt.Errorf("check slug existence: %w", err)
+		}
+
+		// If slug exists, use fallback with UUID suffix
+		if exists {
+			slug = slugs.WithFallback(name)
+		}
+
+		// Create tenant
+		tenant, err = s.repo.Create(txCtx, name, slug)
+		if err != nil {
+			return fmt.Errorf("create tenant: %w", err)
+		}
+
+		// Create membership (user is owner)
+		err = s.repo.CreateMembership(txCtx, userID, tenant.ID, "owner")
+		if err != nil {
+			return fmt.Errorf("create tenant membership: %w", err)
+		}
+
+		// Update user's last active tenant
+		if s.usersRepo != nil {
+			err = s.usersRepo.UpdateLastActiveTenant(txCtx, userID, tenant.ID)
+			if err != nil {
+				return fmt.Errorf("update last active tenant: %w", err)
+			}
+		}
+
+		s.logger.Info("tenant created with owner",
+			slog.String("tenant_id", tenant.ID),
+			slog.String("tenant_name", tenant.Name),
+			slog.String("tenant_slug", tenant.Slug),
+			slog.String("user_id", userID),
+		)
+
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Error("failed to create tenant with owner",
+			slog.String("name", name),
+			slog.String("user_id", userID),
+			slog.String("error", err.Error()),
+		)
+		return nil, err
+	}
+
+	return tenant, nil
 }
 
 func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {

@@ -23,6 +23,11 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	r.PUT("/tenant", h.UpdateTenant)
 }
 
+func (h *Handler) RegisterUserRoutes(r *gin.RouterGroup) {
+	// User-level routes (no tenant context required)
+	r.POST("/tenants", h.CreateTenant)
+}
+
 func (h *Handler) GetTenant(c *gin.Context) {
 	tenantID := appContext.MustTenantID(c.Request.Context())
 
@@ -62,4 +67,33 @@ func (h *Handler) UpdateTenant(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tenant)
+}
+
+type CreateRequest struct {
+	Name string `json:"name" binding:"required,max=255"`
+}
+
+func (h *Handler) CreateTenant(c *gin.Context) {
+	// Get authenticated user ID from context (set by Auth middleware)
+	userID, err := appContext.UserID(c.Request.Context())
+	if err != nil || userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	// Parse request body
+	var req CreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create tenant with user as owner
+	tenant, err := h.service.CreateWithOwner(c.Request.Context(), req.Name, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create organization"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, tenant)
 }
