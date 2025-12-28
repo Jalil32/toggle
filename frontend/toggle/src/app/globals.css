@@ -47,6 +47,23 @@
     --radius-2xl: calc(var(--radius) + 8px);
     --radius-3xl: calc(var(--radius) + 12px);
     --radius-4xl: calc(var(--radius) + 16px);
+
+    /* Gradient colors */
+    --color-gradient-start: var(--gradient-start);
+    --color-gradient-mid: var(--gradient-mid);
+    --color-gradient-end: var(--gradient-end);
+    --color-gradient-accent-light: var(--gradient-accent-light);
+    --color-gradient-accent-dark: var(--gradient-accent-dark);
+
+    /* Status colors */
+    --color-status-enabled: var(--status-enabled);
+    --color-status-enabled-foreground: var(--status-enabled-foreground);
+    --color-status-enabled-border: var(--status-enabled-border);
+    --color-status-enabled-hover: var(--status-enabled-hover);
+    --color-status-disabled: var(--status-disabled);
+    --color-status-disabled-foreground: var(--status-disabled-foreground);
+    --color-status-disabled-border: var(--status-disabled-border);
+    --color-status-disabled-hover: var(--status-disabled-hover);
 }
 
 :root {
@@ -84,6 +101,25 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* Blue/Purple Gradient Theme */
+    --gradient-start: oklch(0.65 0.20 265);
+    --gradient-mid: oklch(0.60 0.18 250);
+    --gradient-end: oklch(0.58 0.16 230);
+    --gradient-accent-light: oklch(0.75 0.18 260);
+    --gradient-accent-dark: oklch(0.50 0.22 270);
+
+    /* Enabled Status Colors */
+    --status-enabled: oklch(0.72 0.20 145);
+    --status-enabled-foreground: oklch(0.98 0 0);
+    --status-enabled-border: oklch(0.65 0.18 145);
+    --status-enabled-hover: oklch(0.78 0.18 145);
+
+    /* Disabled Status Colors */
+    --status-disabled: oklch(0.55 0.12 15);
+    --status-disabled-foreground: oklch(0.98 0 0);
+    --status-disabled-border: oklch(0.48 0.14 15);
+    --status-disabled-hover: oklch(0.60 0.10 15);
 }
 
 .dark {
@@ -120,6 +156,25 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* Blue/Purple Gradient Theme - Dark Mode */
+    --gradient-start: oklch(0.55 0.18 265);
+    --gradient-mid: oklch(0.50 0.16 250);
+    --gradient-end: oklch(0.48 0.14 230);
+    --gradient-accent-light: oklch(0.60 0.16 260);
+    --gradient-accent-dark: oklch(0.45 0.20 270);
+
+    /* Enabled Status - Dark Mode */
+    --status-enabled: oklch(0.65 0.18 145);
+    --status-enabled-foreground: oklch(0.98 0 0);
+    --status-enabled-border: oklch(0.58 0.16 145);
+    --status-enabled-hover: oklch(0.70 0.16 145);
+
+    /* Disabled Status - Dark Mode */
+    --status-disabled: oklch(0.50 0.10 15);
+    --status-disabled-foreground: oklch(0.98 0 0);
+    --status-disabled-border: oklch(0.43 0.12 15);
+    --status-disabled-hover: oklch(0.55 0.08 15);
 }
 
 @layer base {
@@ -131,6 +186,71 @@
         margin: 0;
         font-family: "Inter", sans-serif;
         min-height: 100vh;
+    }
+
+    /* Custom Animations */
+    @keyframes gradient-shift {
+        0%, 100% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            background-position: -200% center;
+        }
+        100% {
+            background-position: 200% center;
+        }
+    }
+
+    @keyframes stagger-fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-gradient {
+        background-size: 200% 200%;
+        animation: gradient-shift 8s ease infinite;
+    }
+
+    .animate-shimmer {
+        background-size: 200% 100%;
+        animation: shimmer 2s linear infinite;
+    }
+}
+
+@layer utilities {
+    /* Gradient Utilities */
+    .bg-gradient-subtle {
+        background: linear-gradient(135deg,
+            oklch(0.65 0.20 265 / 0.05) 0%,
+            oklch(0.58 0.16 230 / 0.05) 100%);
+    }
+
+    .border-gradient {
+        border-image: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)) 1;
+    }
+
+    .ring-gradient {
+        box-shadow: 0 0 0 3px rgba(from var(--gradient-start) r g b / 0.2);
+    }
+
+    /* Reduced Motion Support */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
     }
 }
 

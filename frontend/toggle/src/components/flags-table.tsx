@@ -2,13 +2,10 @@
 
 import * as React from "react";
 import {
-    IconChevronDown,
     IconChevronLeft,
     IconChevronRight,
     IconChevronsLeft,
     IconChevronsRight,
-    IconDotsVertical,
-    IconLayoutColumns,
 } from "@tabler/icons-react";
 import {
     flexRender,
@@ -26,15 +23,8 @@ import {
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -65,125 +55,37 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
     const [columnFilters, setColumnFilters] =
         React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({
-            description: true,
-            rules_count: true,
-            updated_at: true,
-        });
+        React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
-
-    // Responsive column visibility
-    React.useEffect(() => {
-        const handleResize = () => {
-            const width = window.innerWidth;
-
-            if (width < 768) {
-                // Mobile: Show only name and status
-                setColumnVisibility({
-                    description: false,
-                    rules_count: false,
-                    updated_at: false,
-                });
-            } else if (width < 1280) {
-                // Tablet/Small Desktop: Show name, status, updated (no description/rules)
-                setColumnVisibility({
-                    description: false,
-                    rules_count: false,
-                    updated_at: true,
-                });
-            } else {
-                // Large Desktop: Show all columns
-                setColumnVisibility({
-                    description: true,
-                    rules_count: true,
-                    updated_at: true,
-                });
-            }
-        };
-
-        handleResize();
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
-    }, []);
+    const [statusFilter, setStatusFilter] = React.useState<string>("all");
+    const [searchQuery, setSearchQuery] = React.useState<string>("");
 
     const columns: ColumnDef<Flag>[] = [
         {
-            id: "select",
-            header: () => null,
-            cell: ({ row }) => (
-                <div className="flex items-center justify-center">
-                    <Checkbox
-                        checked={row.getIsSelected()}
-                        onCheckedChange={(value) => row.toggleSelected(!!value)}
-                        aria-label="Select row"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>
-            ),
-            enableSorting: false,
-            enableHiding: false,
-        },
-        {
-            accessorKey: "name",
-            header: () => null,
-            cell: ({ row }) => (
-                <div className="min-w-0 font-medium">
-                    {row.getValue("name")}
-                </div>
-            ),
-            enableHiding: false,
-        },
-        {
-            accessorKey: "description",
+            id: "content",
             header: () => null,
             cell: ({ row }) => {
-                const description = row.getValue("description") as
-                    | string
-                    | null;
+                const description = row.original.description;
                 return (
-                    <div className="text-muted-foreground min-w-0 max-w-xs truncate text-sm xl:max-w-md">
-                        {description || "No description"}
-                    </div>
-                );
-            },
-            enableHiding: true,
-        },
-        {
-            accessorKey: "enabled",
-            header: () => null,
-            cell: ({ row }) => {
-                const enabled = row.getValue("enabled") as boolean;
-                return (
-                    <div className="flex justify-end px-2">
-                        <Badge variant={enabled ? "default" : "secondary"}>
-                            {enabled ? "Enabled" : "Disabled"}
-                        </Badge>
+                    <div className="min-w-0 flex-1 flex items-center gap-4">
+                        <div className="font-medium w-48 shrink-0">{row.original.name}</div>
+                        {description && (
+                            <div className="text-muted-foreground min-w-0 flex-1 truncate text-sm hidden md:block">
+                                {description}
+                            </div>
+                        )}
                     </div>
                 );
             },
             enableHiding: false,
-            size: 80,
         },
         {
-            id: "rules_count",
+            id: "metadata",
             header: () => null,
             cell: ({ row }) => {
+                const enabled = row.original.enabled;
                 const rules = row.original.rules;
-                return (
-                    <div className="px-2 text-right text-sm">
-                        {rules.length} {rules.length === 1 ? "rule" : "rules"}
-                    </div>
-                );
-            },
-            enableSorting: false,
-            enableHiding: true,
-            size: 80,
-        },
-        {
-            accessorKey: "updated_at",
-            header: () => null,
-            cell: ({ row }) => {
-                const date = new Date(row.getValue("updated_at"));
+                const date = new Date(row.original.updated_at);
                 const now = new Date();
                 const diffInMs = now.getTime() - date.getTime();
                 const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
@@ -210,60 +112,48 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                     timeAgo = date.toLocaleDateString();
                 }
 
-                return <div className="px-2 text-right text-sm">{timeAgo}</div>;
-            },
-            enableSorting: true,
-            enableHiding: true,
-            size: 80,
-        },
-        {
-            id: "actions",
-            header: () => null,
-            cell: ({ row }) => {
                 return (
-                    <div className="flex justify-end px-1">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                asChild
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8"
-                                >
-                                    <IconDotsVertical className="size-4" />
-                                    <span className="sr-only">Open menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    Delete
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                        <Badge variant="outline" className="hidden sm:inline-flex">
+                            {rules.length} {rules.length === 1 ? "rule" : "rules"}
+                        </Badge>
+                        <Badge variant="outline" className="hidden md:inline-flex">
+                            {timeAgo}
+                        </Badge>
+                        <StatusBadge
+                            enabled={enabled}
+                            className="touch-manipulation"
+                        />
                     </div>
                 );
             },
             enableHiding: false,
-            size: 80,
         },
     ];
 
+    const filteredData = React.useMemo(() => {
+        let filtered = data;
+
+        // Filter by search query
+        if (searchQuery) {
+            filtered = filtered.filter(flag =>
+                flag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (flag.description && flag.description.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+        }
+
+        // Filter by status
+        if (statusFilter === "enabled") {
+            filtered = filtered.filter(flag => flag.enabled);
+        } else if (statusFilter === "disabled") {
+            filtered = filtered.filter(flag => !flag.enabled);
+        }
+
+        return filtered;
+    }, [data, statusFilter, searchQuery]);
+
     const table = useReactTable({
-        data,
+        data: filteredData,
         columns,
         state: {
             sorting,
@@ -293,59 +183,27 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
             <div className="flex shrink-0 items-center justify-between gap-4 px-4 lg:px-6">
                 <Input
                     placeholder="Search flags..."
-                    value={
-                        (table.getColumn("name")?.getFilterValue() as string) ??
-                        ""
-                    }
-                    onChange={(event) =>
-                        table
-                            .getColumn("name")
-                            ?.setFilterValue(event.target.value)
-                    }
-                    className="max-w-sm"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="max-w-sm transition-all duration-200 focus:shadow-lg focus:shadow-gradient-start/10"
                 />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                            <IconLayoutColumns />
-                            <span className="hidden lg:inline">
-                                Customize Columns
-                            </span>
-                            <span className="lg:hidden">Columns</span>
-                            <IconChevronDown />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        {table
-                            .getAllColumns()
-                            .filter(
-                                (column) =>
-                                    typeof column.accessorFn !== "undefined" &&
-                                    column.getCanHide(),
-                            )
-                            .map((column) => {
-                                return (
-                                    <DropdownMenuCheckboxItem
-                                        key={column.id}
-                                        className="capitalize"
-                                        checked={column.getIsVisible()}
-                                        onCheckedChange={(value) =>
-                                            column.toggleVisibility(!!value)
-                                        }
-                                    >
-                                        {column.id}
-                                    </DropdownMenuCheckboxItem>
-                                );
-                            })}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]" size="sm">
+                        <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Flags</SelectItem>
+                        <SelectItem value="enabled">Enabled Only</SelectItem>
+                        <SelectItem value="disabled">Disabled Only</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             <div className="min-h-0 w-full flex-1 overflow-auto border-t">
                 <Table>
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
+                            table.getRowModel().rows.map((row, index) => (
                                 <TableRow
                                     key={row.id}
                                     data-state={
@@ -354,7 +212,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                                     onClick={() =>
                                         handleRowClick(row.original.id)
                                     }
-                                    className="cursor-pointer border-b transition-colors hover:bg-muted/50"
+                                    className="cursor-pointer border-b transition-all duration-100 hover:bg-muted/50 group min-h-[64px] md:min-h-[auto] active:bg-muted/70 hover:shadow-[inset_4px_0_0_0_var(--accent)]"
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell
@@ -375,7 +233,10 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                                     colSpan={columns.length}
                                     className="h-24 px-4 text-center lg:px-6"
                                 >
-                                    No flags found.
+                                    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                        <p className="font-medium">No flags found.</p>
+                                        <p className="text-sm">Create your first feature flag to get started.</p>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         )}
@@ -434,7 +295,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                         <div className="ml-auto flex items-center gap-2 lg:ml-0">
                             <Button
                                 variant="outline"
-                                className="hidden h-8 w-8 p-0 lg:flex"
+                                className="hidden h-10 w-10 p-0 lg:flex touch-manipulation"
                                 onClick={() => table.setPageIndex(0)}
                                 disabled={!table.getCanPreviousPage()}
                             >
@@ -445,7 +306,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                             </Button>
                             <Button
                                 variant="outline"
-                                className="size-8"
+                                className="h-10 w-10 touch-manipulation"
                                 size="icon"
                                 onClick={() => table.previousPage()}
                                 disabled={!table.getCanPreviousPage()}
@@ -457,7 +318,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                             </Button>
                             <Button
                                 variant="outline"
-                                className="size-8"
+                                className="h-10 w-10 touch-manipulation"
                                 size="icon"
                                 onClick={() => table.nextPage()}
                                 disabled={!table.getCanNextPage()}
@@ -467,7 +328,7 @@ export function FlagsTable({ data, slug }: FlagsTableProps) {
                             </Button>
                             <Button
                                 variant="outline"
-                                className="hidden size-8 lg:flex"
+                                className="hidden h-10 w-10 lg:flex touch-manipulation"
                                 size="icon"
                                 onClick={() =>
                                     table.setPageIndex(table.getPageCount() - 1)
