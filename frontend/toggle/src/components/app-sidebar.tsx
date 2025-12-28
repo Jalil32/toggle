@@ -26,11 +26,6 @@ import {
 import { Logo } from "@/components/logo";
 
 const staticData = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navSecondary: [
     {
       title: "Settings",
@@ -45,7 +40,19 @@ const staticData = {
   ],
 };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  user: {
+    name: string;
+    email: string;
+    avatar: string;
+  };
+  organization: {
+    name: string;
+    slug: string;
+  };
+}
+
+export function AppSidebar({ user, organization, ...props }: AppSidebarProps) {
   const params = useParams();
   const slug = params?.slug as string | undefined;
 
@@ -92,7 +99,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={staticData.user} />
+        <NavUser user={user} organization={organization} />
       </SidebarFooter>
     </Sidebar>
   );

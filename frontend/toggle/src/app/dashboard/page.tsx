@@ -24,7 +24,7 @@ export default async function Page() {
     redirect("/onboarding/create-organization");
   }
 
-  // Redirect to the first organization's dashboard
+  // Redirect to the first organization's flags page
   // In the future, this could redirect to the user's last active organization
-  redirect(`/${tenants[0].slug}/dashboard`);
+  redirect(`/${tenants[0].slug}/flags`);
 }

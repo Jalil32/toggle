@@ -51,7 +51,18 @@ export default async function SlugLayout({ children, params }: LayoutProps) {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="sidebar" />
+      <AppSidebar
+        variant="sidebar"
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          avatar: session.user.image || "",
+        }}
+        organization={{
+          name: tenant.name,
+          slug: tenant.slug,
+        }}
+      />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );
