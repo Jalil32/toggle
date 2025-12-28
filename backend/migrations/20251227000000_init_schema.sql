@@ -80,7 +80,8 @@ CREATE TABLE projects (
 -- Flags - Feature flags with rules and rollout configuration
 CREATE TABLE flags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     enabled BOOLEAN NOT NULL DEFAULT false,
@@ -167,7 +168,8 @@ CREATE INDEX idx_tenant_invitations_tenant ON tenant_invitations(tenant_id);
 CREATE INDEX idx_projects_tenant ON projects(tenant_id);
 
 -- Flag indexes
-CREATE INDEX idx_flags_project ON flags(project_id);
+CREATE INDEX idx_flags_tenant ON flags(tenant_id);
+CREATE INDEX idx_flags_project ON flags(project_id) WHERE project_id IS NOT NULL;
 CREATE INDEX idx_flags_rule_logic ON flags(rule_logic);
 
 -- Session indexes

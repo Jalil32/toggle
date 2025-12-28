@@ -104,10 +104,11 @@ func TestE2E_NewUserOnboardingJourney(t *testing.T) {
 
 		// === STEP 4: User creates their first feature flag ===
 		firstFlag := &flagspkg.Flag{
+			TenantID:    tenantID,
 			Name:        "welcome-banner",
 			Description: "Show welcome banner to new users",
 			Enabled:     false,
-			ProjectID:   project.ID,
+			ProjectID:   &project.ID,
 			Rules:       []flagspkg.Rule{},
 			RuleLogic:   "AND",
 		}
@@ -196,8 +197,8 @@ func TestE2E_MultiTenantUserJourney(t *testing.T) {
 		projectA1 := testutil.CreateProject(t, cleanupTx, tenantA.ID, "Project A1", "api-key-a1")
 		projectA2 := testutil.CreateProject(t, cleanupTx, tenantA.ID, "Project A2", "api-key-a2")
 
-		flagA1 := testutil.CreateFlag(t, cleanupTx, projectA1.ID, "flag-a1", "Flag A1", true)
-		flagA2 := testutil.CreateFlag(t, cleanupTx, projectA2.ID, "flag-a2", "Flag A2", false)
+		flagA1 := testutil.CreateFlag(t, cleanupTx, tenantA.ID, &projectA1.ID, "flag-a1", "Flag A1", true)
+		flagA2 := testutil.CreateFlag(t, cleanupTx, tenantA.ID, &projectA2.ID, "flag-a2", "Flag A2", false)
 
 		// List all Tenant A projects
 		projectsA, err := projectRepo.ListByTenantID(ctx, tenantA.ID)
@@ -206,7 +207,7 @@ func TestE2E_MultiTenantUserJourney(t *testing.T) {
 
 		// === STEP 3: Switch to Tenant B (as admin) ===
 		projectB1 := testutil.CreateProject(t, cleanupTx, tenantB.ID, "Project B1", "api-key-b1")
-		flagB1 := testutil.CreateFlag(t, cleanupTx, projectB1.ID, "flag-b1", "Flag B1", true)
+		flagB1 := testutil.CreateFlag(t, cleanupTx, tenantB.ID, &projectB1.ID, "flag-b1", "Flag B1", true)
 
 		projectsB, err := projectRepo.ListByTenantID(ctx, tenantB.ID)
 		require.NoError(t, err)
@@ -214,7 +215,7 @@ func TestE2E_MultiTenantUserJourney(t *testing.T) {
 
 		// === STEP 4: Switch to Tenant C (as member) ===
 		projectC1 := testutil.CreateProject(t, cleanupTx, tenantC.ID, "Project C1", "api-key-c1")
-		flagC1 := testutil.CreateFlag(t, cleanupTx, projectC1.ID, "flag-c1", "Flag C1", false)
+		flagC1 := testutil.CreateFlag(t, cleanupTx, tenantC.ID, &projectC1.ID, "flag-c1", "Flag C1", false)
 
 		projectsC, err := projectRepo.ListByTenantID(ctx, tenantC.ID)
 		require.NoError(t, err)
@@ -299,7 +300,7 @@ func TestE2E_LoadTest_CreateManyTenants(t *testing.T) {
 
 				// Create flags for this project
 				for k := 0; k < flagsPerProject; k++ {
-					flag := testutil.CreateFlag(t, cleanupTx, project.ID,
+					flag := testutil.CreateFlag(t, cleanupTx, tenant.ID, &project.ID,
 						"flag-"+string(rune('a'+k)),
 						"Flag "+string(rune('A'+k)),
 						k%2 == 0)

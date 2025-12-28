@@ -83,7 +83,7 @@ func TestIDEnumeration_InvalidFlagID_ReturnsConsistentError(t *testing.T) {
 		// Setup
 		tenant := testutil.CreateTenant(t, tx, "Test Tenant", "test-tenant")
 		project := testutil.CreateProject(t, tx, tenant.ID, "Project", "api-key")
-		flag := testutil.CreateFlag(t, tx, project.ID, "real-flag", "Real Flag", true)
+		flag := testutil.CreateFlag(t, tx, tenant.ID, &project.ID, "real-flag", "Real Flag", true)
 
 		repo := flagspkg.NewRepository(testutil.GetTestDB())
 		ctx = transaction.InjectTx(ctx, tx)
@@ -168,10 +168,11 @@ func TestSQLInjection_FlagDescription_IsSafelyHandled(t *testing.T) {
 
 		for i, maliciousDesc := range maliciousDescriptions {
 			flag := &flagspkg.Flag{
+				TenantID:    tenant.ID,
 				Name:        "flag-" + string(rune('a'+i)),
 				Description: maliciousDesc,
 				Enabled:     false,
-				ProjectID:   project.ID,
+				ProjectID:   &project.ID,
 				Rules:       []flagspkg.Rule{},
 				RuleLogic:   "AND",
 			}

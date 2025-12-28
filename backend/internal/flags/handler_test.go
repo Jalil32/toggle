@@ -80,7 +80,7 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "successful creation",
 			body: CreateRequest{
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 				Name:        "test-flag",
 				Description: "test description",
 				Rules:       []Rule{},
@@ -113,7 +113,7 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "empty name",
 			body: CreateRequest{
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 				Name:        "",
 				Description: "test description",
 			},
@@ -124,7 +124,7 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "service validation error",
 			body: CreateRequest{
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 				Name:        "test-flag",
 				Description: "test description",
 			},
@@ -137,7 +137,7 @@ func TestHandlerCreate(t *testing.T) {
 		{
 			name: "service error",
 			body: CreateRequest{
-				ProjectID:   "test-project-id",
+				ProjectID:   stringPtr("test-project-id"),
 				Name:        "test-flag",
 				Description: "test description",
 			},

@@ -182,13 +182,13 @@ func TestAPIKey_TenantIsolation_StrictSeparation(t *testing.T) {
 	tenant1 := testutil.CreateTenant(t, tx1, "Tenant 1", "tenant1-test")
 	apiKey1 := generateAPIKey()
 	project1 := testutil.CreateProject(t, tx1, tenant1.ID, "Tenant1 Project", apiKey1)
-	flag1 := testutil.CreateFlag(t, tx1, project1.ID, "tenant1-flag", "Tenant 1 Flag", true)
+	flag1 := testutil.CreateFlag(t, tx1, tenant1.ID, &project1.ID, "tenant1-flag", "Tenant 1 Flag", true)
 
 	// Create Tenant 2 with project and flag
 	tenant2 := testutil.CreateTenant(t, tx1, "Tenant 2", "tenant2-test")
 	apiKey2 := generateAPIKey()
 	project2 := testutil.CreateProject(t, tx1, tenant2.ID, "Tenant2 Project", apiKey2)
-	flag2 := testutil.CreateFlag(t, tx1, project2.ID, "tenant2-flag", "Tenant 2 Flag", true)
+	flag2 := testutil.CreateFlag(t, tx1, tenant2.ID, &project2.ID, "tenant2-flag", "Tenant 2 Flag", true)
 
 	err = tx1.Commit()
 	require.NoError(t, err)

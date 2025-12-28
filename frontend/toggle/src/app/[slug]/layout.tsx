@@ -1,23 +1,18 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { ChartAreaInteractive } from "@/components/chart-area-interactive";
-import { DataTable } from "@/components/data-table";
-import { SectionCards } from "@/components/section-cards";
-import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
+import { getTenants } from "@/lib/api-server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getTenants } from "@/lib/api-server";
 
-import data from "./data.json";
-
-interface PageProps {
+interface LayoutProps {
+  children: React.ReactNode;
   params: Promise<{
     slug: string;
   }>;
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function SlugLayout({ children, params }: LayoutProps) {
   const { slug } = await params;
   const requestHeaders = await headers();
 
@@ -56,17 +51,19 @@ export default async function Page({ params }: PageProps) {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="sidebar" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <DataTable data={data} />
-            </div>
-          </div>
-        </div>
-      </SidebarInset>
+      <AppSidebar
+        variant="sidebar"
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          avatar: session.user.image || "",
+        }}
+        organization={{
+          name: tenant.name,
+          slug: tenant.slug,
+        }}
+      />
+      <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );
 }

@@ -46,12 +46,13 @@ func TestRepository_Create_Sociable(t *testing.T) {
 
 		// Test: Create a flag
 		newFlag := &flag.Flag{
+			TenantID:    tenant.ID,
 			Name:        "new-feature",
 			Description: "A new feature flag",
 			Enabled:     false,
 			Rules:       []flag.Rule{},
 			RuleLogic:   "AND",
-			ProjectID:   project.ID,
+			ProjectID:   &project.ID,
 		}
 
 		err := repo.Create(ctx, newFlag)
@@ -77,22 +78,24 @@ func TestRepository_GetByID_TenantIsolation(t *testing.T) {
 
 		// Create flags for each tenant
 		flag1 := &flag.Flag{
+			TenantID:    tenant1.ID,
 			Name:        "tenant1-flag",
 			Description: "Flag for tenant 1",
 			Enabled:     true,
 			Rules:       []flag.Rule{},
 			RuleLogic:   "AND",
-			ProjectID:   project1.ID,
+			ProjectID:   &project1.ID,
 		}
 		require.NoError(t, repo.Create(ctx, flag1))
 
 		flag2 := &flag.Flag{
+			TenantID:    tenant2.ID,
 			Name:        "tenant2-flag",
 			Description: "Flag for tenant 2",
 			Enabled:     false,
 			Rules:       []flag.Rule{},
 			RuleLogic:   "AND",
-			ProjectID:   project2.ID,
+			ProjectID:   &project2.ID,
 		}
 		require.NoError(t, repo.Create(ctx, flag2))
 
@@ -128,12 +131,13 @@ func TestRepository_List_OnlyReturnsTenantData(t *testing.T) {
 		// Create 3 flags for tenant 1
 		for i := 1; i <= 3; i++ {
 			f := &flag.Flag{
+				TenantID:    tenant1.ID,
 				Name:        fmt.Sprintf("tenant1-flag-%d", i),
 				Description: "Tenant 1 flag",
 				Enabled:     true,
 				Rules:       []flag.Rule{},
 				RuleLogic:   "AND",
-				ProjectID:   project1.ID,
+				ProjectID:   &project1.ID,
 			}
 			require.NoError(t, repo.Create(ctx, f))
 		}
@@ -141,12 +145,13 @@ func TestRepository_List_OnlyReturnsTenantData(t *testing.T) {
 		// Create 2 flags for tenant 2
 		for i := 1; i <= 2; i++ {
 			f := &flag.Flag{
+				TenantID:    tenant2.ID,
 				Name:        fmt.Sprintf("tenant2-flag-%d", i),
 				Description: "Tenant 2 flag",
 				Enabled:     false,
 				Rules:       []flag.Rule{},
 				RuleLogic:   "AND",
-				ProjectID:   project2.ID,
+				ProjectID:   &project2.ID,
 			}
 			require.NoError(t, repo.Create(ctx, f))
 		}
@@ -181,12 +186,13 @@ func TestRepository_Update_EnforcesTenantBoundary(t *testing.T) {
 
 		// Create a flag for tenant 1
 		originalFlag := &flag.Flag{
+			TenantID:    tenant1.ID,
 			Name:        "original-flag",
 			Description: "Original",
 			Enabled:     false,
 			Rules:       []flag.Rule{},
 			RuleLogic:   "AND",
-			ProjectID:   project1.ID,
+			ProjectID:   &project1.ID,
 		}
 		require.NoError(t, repo.Create(ctx, originalFlag))
 
@@ -226,12 +232,13 @@ func TestRepository_Delete_EnforcesTenantBoundary(t *testing.T) {
 
 		// Create a flag for tenant 1
 		testFlag := &flag.Flag{
+			TenantID:    tenant1.ID,
 			Name:        "test-flag",
 			Description: "Test flag",
 			Enabled:     true,
 			Rules:       []flag.Rule{},
 			RuleLogic:   "AND",
-			ProjectID:   project1.ID,
+			ProjectID:   &project1.ID,
 		}
 		require.NoError(t, repo.Create(ctx, testFlag))
 

@@ -71,10 +71,10 @@ func TestE2E_SDKEvaluationFlow(t *testing.T) {
 	// Create multiple flags with different configurations
 
 	// Flag 1: Simple enabled flag with no rules (should always return true)
-	flag1 := testutil.CreateFlag(t, tx, project.ID, "simple-flag", "Simple enabled flag", true)
+	flag1 := testutil.CreateFlag(t, tx, tenant.ID, &project.ID, "simple-flag", "Simple enabled flag", true)
 
 	// Flag 2: Disabled flag (should always return false)
-	flag2 := testutil.CreateFlag(t, tx, project.ID, "disabled-flag", "Disabled flag", false)
+	flag2 := testutil.CreateFlag(t, tx, tenant.ID, &project.ID, "disabled-flag", "Disabled flag", false)
 
 	// Flag 3: Country-based flag with AND logic
 	rules3, _ := json.Marshal([]flagspkg.Rule{
@@ -86,7 +86,7 @@ func TestE2E_SDKEvaluationFlow(t *testing.T) {
 			Rollout:   100,
 		},
 	})
-	flag3 := testutil.CreateFlagWithRules(t, tx, project.ID, "country-flag", "Enabled only for US users", true, string(rules3), "AND")
+	flag3 := testutil.CreateFlagWithRules(t, tx, tenant.ID, &project.ID, "country-flag", "Enabled only for US users", true, string(rules3), "AND")
 
 	// Flag 4: Premium users OR specific countries (OR logic)
 	rules4, _ := json.Marshal([]flagspkg.Rule{
@@ -105,7 +105,7 @@ func TestE2E_SDKEvaluationFlow(t *testing.T) {
 			Rollout:   100,
 		},
 	})
-	flag4 := testutil.CreateFlagWithRules(t, tx, project.ID, "premium-or-country-flag", "Enabled for premium users OR users in AU/GB", true, string(rules4), "OR")
+	flag4 := testutil.CreateFlagWithRules(t, tx, tenant.ID, &project.ID, "premium-or-country-flag", "Enabled for premium users OR users in AU/GB", true, string(rules4), "OR")
 
 	// Flag 5: Age-based flag with rollout percentage
 	rules5, _ := json.Marshal([]flagspkg.Rule{
@@ -117,7 +117,7 @@ func TestE2E_SDKEvaluationFlow(t *testing.T) {
 			Rollout:   50,
 		},
 	})
-	flag5 := testutil.CreateFlagWithRules(t, tx, project.ID, "age-based-flag", "Enabled for users over 18 with 50% rollout", true, string(rules5), "AND")
+	flag5 := testutil.CreateFlagWithRules(t, tx, tenant.ID, &project.ID, "age-based-flag", "Enabled for users over 18 with 50% rollout", true, string(rules5), "AND")
 
 	// Commit the transaction so the middleware can see the data
 	err = tx.Commit()

@@ -52,7 +52,8 @@ type TenantMember struct {
 // Flag represents a test flag fixture
 type Flag struct {
 	ID          string
-	ProjectID   string
+	TenantID    string
+	ProjectID   *string
 	Name        string
 	Description string
 	Enabled     bool
@@ -173,11 +174,12 @@ func SetUserLastActiveTenant(t *testing.T, tx *sqlx.Tx, userID, tenantID string)
 }
 
 // CreateFlag creates a feature flag in the database for testing
-func CreateFlag(t *testing.T, tx *sqlx.Tx, projectID, name, description string, enabled bool) *Flag {
+func CreateFlag(t *testing.T, tx *sqlx.Tx, tenantID string, projectID *string, name, description string, enabled bool) *Flag {
 	t.Helper()
 
 	flag := &Flag{
 		ID:          uuid.New().String(),
+		TenantID:    tenantID,
 		ProjectID:   projectID,
 		Name:        name,
 		Description: description,
@@ -189,10 +191,10 @@ func CreateFlag(t *testing.T, tx *sqlx.Tx, projectID, name, description string, 
 	}
 
 	query := `
-		INSERT INTO flags (id, project_id, name, description, enabled, rules, rule_logic, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO flags (id, tenant_id, project_id, name, description, enabled, rules, rule_logic, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
-	_, err := tx.Exec(query, flag.ID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.RuleLogic, flag.CreatedAt, flag.UpdatedAt)
+	_, err := tx.Exec(query, flag.ID, flag.TenantID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.RuleLogic, flag.CreatedAt, flag.UpdatedAt)
 	if err != nil {
 		t.Fatalf("failed to create flag: %v", err)
 	}
@@ -201,11 +203,12 @@ func CreateFlag(t *testing.T, tx *sqlx.Tx, projectID, name, description string, 
 }
 
 // CreateFlagWithRules creates a feature flag with custom rules and rule logic
-func CreateFlagWithRules(t *testing.T, tx *sqlx.Tx, projectID, name, description string, enabled bool, rules string, ruleLogic string) *Flag {
+func CreateFlagWithRules(t *testing.T, tx *sqlx.Tx, tenantID string, projectID *string, name, description string, enabled bool, rules string, ruleLogic string) *Flag {
 	t.Helper()
 
 	flag := &Flag{
 		ID:          uuid.New().String(),
+		TenantID:    tenantID,
 		ProjectID:   projectID,
 		Name:        name,
 		Description: description,
@@ -217,10 +220,10 @@ func CreateFlagWithRules(t *testing.T, tx *sqlx.Tx, projectID, name, description
 	}
 
 	query := `
-		INSERT INTO flags (id, project_id, name, description, enabled, rules, rule_logic, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO flags (id, tenant_id, project_id, name, description, enabled, rules, rule_logic, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
-	_, err := tx.Exec(query, flag.ID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.RuleLogic, flag.CreatedAt, flag.UpdatedAt)
+	_, err := tx.Exec(query, flag.ID, flag.TenantID, flag.ProjectID, flag.Name, flag.Description, flag.Enabled, flag.Rules, flag.RuleLogic, flag.CreatedAt, flag.UpdatedAt)
 	if err != nil {
 		t.Fatalf("failed to create flag: %v", err)
 	}

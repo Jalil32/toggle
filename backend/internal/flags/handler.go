@@ -125,6 +125,9 @@ func (h *handler) Update(c *gin.Context) {
 	}
 
 	// Apply updates
+	if req.ProjectID != nil {
+		flag.ProjectID = req.ProjectID
+	}
 	if req.Name != nil {
 		flag.Name = *req.Name
 	}

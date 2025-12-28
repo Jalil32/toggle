@@ -18,7 +18,7 @@ import {
   FieldDescription,
 } from "@/components/ui/field";
 import { createTenantAction } from "@/app/actions/tenants";
-import { Eclipse } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 const organizationSchema = z.object({
   name: z
@@ -88,9 +88,7 @@ export default function CreateOrganizationPage() {
       <div className="flex flex-col gap-6 rounded-lg p-16">
         {/* Header - stays in same position */}
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex size-16 items-center justify-center rounded-md bg-fuchsia-400">
-            <Eclipse className="size-10 text-primary-foreground" />
-          </div>
+          <Logo size={64} />
           <h1 className="text-xl font-medium">Create Your Organization</h1>
           <FieldDescription>
             Get started by creating your first organization.
